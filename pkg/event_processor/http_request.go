@@ -101,9 +101,10 @@ func (hr *HTTPRequest) Reset() {
 }
 
 func (hr *HTTPRequest) Display() []byte {
-	if hr.request.Proto == "HTTP/2.0" {
-		return hr.reader.Bytes()
-	}
+	// httputil.DumpRequest can dump http2 requests as well
+	// if hr.request.Proto == "HTTP/2.0" {
+	// 	return hr.reader.Bytes()
+	// }
 	b, e := httputil.DumpRequest(hr.request, true)
 	if e != nil {
 		log.Println("DumpRequest error:", e)
