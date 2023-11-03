@@ -35,11 +35,13 @@ const (
 	PacketTypeUnknow
 	PacketTypeGzip
 	PacketTypeWebSocket
+	PacketTypeHTTP2Frame
 )
 
 const (
 	ParserTypeNull ParserType = iota
 	ParserTypeHttpRequest
+	ParserTypeHttp2Frame
 	ParserTypeHttp2Request
 	ParserTypeHttpResponse
 	ParserTypeHttp2Response
@@ -93,6 +95,8 @@ func NewParser(payload []byte) IParser {
 					newParser = new(HTTPRequest)
 				case ParserTypeHttpResponse:
 					newParser = new(HTTPResponse)
+				case ParserTypeHttp2Frame:
+					newParser = new(HTTP2Frame)
 				case ParserTypeHttp2Request:
 					// TODO support HTTP2 request
 					// via golang.org/x/net/http2
