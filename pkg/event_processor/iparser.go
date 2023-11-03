@@ -41,11 +41,11 @@ const (
 const (
 	ParserTypeNull ParserType = iota
 	ParserTypeHttpRequest
-	ParserTypeHttp2Frame
 	ParserTypeHttp2Request
 	ParserTypeHttpResponse
 	ParserTypeHttp2Response
 	ParserTypeWebSocket
+	ParserTypeHttp2Frame
 )
 
 type IParser interface {

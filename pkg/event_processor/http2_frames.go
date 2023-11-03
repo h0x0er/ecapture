@@ -35,7 +35,6 @@ type HTTP2Frame struct {
 func (hr *HTTP2Frame) Init() {
 	hr.reader = bytes.NewBuffer(nil)
 	hr.bufReader = bufio.NewReader(hr.reader)
-	hr.packerType = PacketTypeHTTP2Frame
 }
 
 func (hr *HTTP2Frame) Name() string {
