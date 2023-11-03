@@ -15,6 +15,7 @@
 package event
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
 	"time"
