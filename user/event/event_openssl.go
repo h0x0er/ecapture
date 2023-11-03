@@ -16,7 +16,6 @@ package event
 
 import (
 	"bytes"
-	"ecapture/pkg/event_processor"
 	"encoding/binary"
 	"fmt"
 	"log"
