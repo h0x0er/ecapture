@@ -24,9 +24,6 @@ import (
 	"ecapture/user/event"
 	"errors"
 	"fmt"
-	"github.com/cilium/ebpf"
-	manager "github.com/gojue/ebpfmanager"
-	"golang.org/x/sys/unix"
 	"log"
 	"math"
 	"os"
@@ -34,6 +31,10 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/cilium/ebpf"
+	manager "github.com/gojue/ebpfmanager"
+	"golang.org/x/sys/unix"
 )
 
 const (
@@ -750,7 +751,7 @@ func (m *MOpenSSLProbe) dumpSslData(eventStruct *event.SSLDataEvent) {
 	} else {
 		eventStruct.Addr = addr
 	}
-	//m.processor.Write(eventStruct)
+	m.processor.Write(eventStruct)
 	m.logger.Println(eventStruct)
 }
 
