@@ -24,13 +24,12 @@ import (
 )
 
 type HTTP2Frame struct {
-	frameHeader http2.FrameHeader
-	frame       http2.Frame
-	packerType  PacketType
-	isDone      bool
-	isInit      bool
-	reader      *bytes.Buffer
-	bufReader   *bufio.Reader
+	frame      http2.Frame
+	packerType PacketType
+	isDone     bool
+	isInit     bool
+	reader     *bytes.Buffer
+	bufReader  *bufio.Reader
 }
 
 func (hr *HTTP2Frame) Init() {
@@ -91,11 +90,16 @@ func (hr *HTTP2Frame) detect(payload []byte) error {
 	rd := bytes.NewReader(payload)
 	buf := bufio.NewReader(rd)
 
-	f, err := http2.ReadFrameHeader(buf)
+	fr := http2.NewFramer(nil, buf)
+	fr.ReadMetaHeaders = hpack.NewDecoder(0, nil)
+	// fr.ReadMetaHeaders.SetEmitFunc(emitFunc)
+	// fr.ReadMetaHeaders.SetEmitEnabled(true)
+	f, err := fr.ReadFrame()
 	if err != nil {
 		return err
 	}
-	hr.frameHeader = f
+
+	hr.frame = f
 	return nil
 }
 
@@ -117,7 +121,7 @@ func (hr *HTTP2Frame) Display() []byte {
 	// 	return hr.reader.Bytes()
 	// }
 
-	display := fmt.Sprintf("FrameHeader: %#v; Frame: %#v", hr.frameHeader, hr.frame)
+	display := fmt.Sprintf("HTTP2Frame: %#v", hr.frame)
 
 	return []byte(display)
 }
