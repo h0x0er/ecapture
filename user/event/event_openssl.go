@@ -16,7 +16,6 @@ package event
 
 import (
 	"bytes"
-	"ecapture/pkg/event_processor"
 	"encoding/binary"
 	"fmt"
 	"log"
@@ -172,7 +171,7 @@ func (se *SSLDataEvent) String() string {
 	v := TlsVersion{Version: se.Version}
 	s := fmt.Sprintf("PID:%d, Comm:%s, TID:%d, Version:%s, %s, Payload:\n%s%s%s", se.Pid, bytes.TrimSpace(se.Comm[:]), se.Tid, v.String(), connInfo, perfix, string(se.Data[:se.DataLen]), COLORRESET)
 
-	frame, err := event_processor.BytesToHTTP2Frame(se.Data[:se.DataLen])
+	frame, err := BytesToHTTP2Frame(se.Data[:se.DataLen])
 	if err != nil {
 		log.Printf("[event_penssl] Error converting bytes to frame: %s", err)
 	} else {
