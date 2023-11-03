@@ -130,3 +130,19 @@ func init() {
 	hr.Init()
 	Register(hr)
 }
+
+func BytesToHTTP2Frame(b []byte) (http2.Frame, error) {
+
+	rd := bytes.NewReader(b)
+	buf := bufio.NewReader(rd)
+
+	fr := http2.NewFramer(nil, buf)
+	fr.ReadMetaHeaders = hpack.NewDecoder(0, nil)
+	// fr.ReadMetaHeaders.SetEmitFunc(emitFunc)
+	// fr.ReadMetaHeaders.SetEmitEnabled(true)
+	f, err := fr.ReadFrame()
+	if err != nil {
+		return nil, err
+	}
+	return f, nil
+}
