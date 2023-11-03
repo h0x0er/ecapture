@@ -16,7 +16,6 @@ package event
 
 import (
 	"bytes"
-	"ecapture/pkg/event_processor"
 	"encoding/binary"
 	"fmt"
 	"log"
@@ -98,7 +97,7 @@ func (ge *GnutlsDataEvent) String() string {
 	}
 	s := fmt.Sprintf(" PID:%d, Comm:%s, TID:%d, TYPE:%s, DataLen:%d bytes, Payload:\n%s%s%s", ge.Pid, ge.Comm, ge.Tid, packetType, ge.DataLen, perfix, string(ge.Data[:ge.DataLen]), COLORRESET)
 
-	frame, err := event_processor.BytesToHTTP2Frame(ge.Data[:ge.DataLen])
+	frame, err := BytesToHTTP2Frame(ge.Data[:ge.DataLen])
 	if err != nil {
 		log.Printf("[GnutlsDataEvent] Error converting bytes to frame: %s", err)
 	} else {
