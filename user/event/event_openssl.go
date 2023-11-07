@@ -159,6 +159,7 @@ func (se *SSLDataEvent) String() string {
 
 	shouldLog := false
 	out := ""
+	logFmt := new(LogFmt)
 
 	// addr := "[TODO]"
 	// if se.Addr != "" {
@@ -189,7 +190,6 @@ func (se *SSLDataEvent) String() string {
 		// 	out = fmt.Sprintf("PID:%d, Comm:%s, TID:%d, Version:%s, %s, Payload:\n%s%s%s, \nFrame: %#v", se.Pid, bytes.TrimSpace(se.Comm[:]), se.Tid, v.String(), connInfo, perfix, string(se.Data[:se.DataLen]), COLORRESET, frame)
 		// }
 
-		logFmt := new(LogFmt)
 		logFmt.Executable = unix.ByteSliceToString(se.Comm[:])
 
 		logFmt.Timestamp = se.Timestamp
@@ -201,20 +201,16 @@ func (se *SSLDataEvent) String() string {
 				s, err := parsehttp2frame.Frame2String(frame)
 				if err == nil {
 					logFmt.Data = s
-				} else {
-					shouldLog = false
 				}
-
 			}
 		} else {
-			shouldLog = true
 			logFmt.Data = unix.ByteSliceToString(se.Data[:se.DataLen])
 		}
 
-		if shouldLog {
-			out = logFmt.String()
-		}
+	}
 
+	if len(logFmt.Data) > 0 {
+		out = logFmt.String()
 	}
 
 	return out
