@@ -193,7 +193,6 @@ func (se *SSLDataEvent) String() string {
 		logFmt.Executable = unix.ByteSliceToString(se.Comm[:])
 
 		logFmt.Timestamp = se.Timestamp
-		logFmt.Data = unix.ByteSliceToString(se.Data[:se.DataLen])
 
 		frame, err := parsehttp2frame.BytesToHTTP2Frame(se.Data[:se.DataLen])
 
@@ -202,12 +201,19 @@ func (se *SSLDataEvent) String() string {
 				s, err := parsehttp2frame.Frame2String(frame)
 				if err == nil {
 					logFmt.Data = s
+				} else {
+					shouldLog = false
 				}
 
 			}
+		} else {
+			shouldLog = true
+			logFmt.Data = unix.ByteSliceToString(se.Data[:se.DataLen])
 		}
 
-		out = logFmt.String()
+		if shouldLog {
+			out = logFmt.String()
+		}
 
 	}
 
