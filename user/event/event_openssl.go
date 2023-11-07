@@ -20,6 +20,10 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"time"
+
+	"github.com/h0x0er/parsehttp2frame"
+	"golang.org/x/net/http2"
 )
 
 type AttachType int64
@@ -157,6 +161,10 @@ func (se *SSLDataEvent) StringHex() string {
 
 func (se *SSLDataEvent) String() string {
 	//addr := se.module.(*module.MOpenSSLProbe).GetConn(se.Pid, se.Fd)
+
+	shouldLog := false
+	out := ""
+
 	addr := "[TODO]"
 	if se.Addr != "" {
 		addr = se.Addr
@@ -169,24 +177,55 @@ func (se *SSLDataEvent) String() string {
 	case ProbeRet:
 		connInfo = fmt.Sprintf("%sSend %d%s bytes to %s%s%s", COLORPURPLE, se.DataLen, COLORRESET, COLORYELLOW, addr, COLORRESET)
 		perfix = COLORPURPLE
+		shouldLog = true // only logging requests
 	default:
 		connInfo = fmt.Sprintf("%sUNKNOW_%d%s", COLORRED, se.DataType, COLORRESET)
 	}
 	v := TlsVersion{Version: se.Version}
-	s := fmt.Sprintf("PID:%d, Comm:%s, TID:%d, Version:%s, %s, Payload:\n%s%s%s", se.Pid, bytes.TrimSpace(se.Comm[:]), se.Tid, v.String(), connInfo, perfix, string(se.Data[:se.DataLen]), COLORRESET)
+	out = fmt.Sprintf("PID:%d, Comm:%s, TID:%d, Version:%s, %s, Payload:\n%s%s%s", se.Pid, bytes.TrimSpace(se.Comm[:]), se.Tid, v.String(), connInfo, perfix, string(se.Data[:se.DataLen]), COLORRESET)
 
-	frame, err := BytesToHTTP2Frame(se.Data[:se.DataLen])
+	frame, err := parsehttp2frame.BytesToHTTP2Frame(se.Data[:se.DataLen])
 	if err != nil {
 		log.Printf("[event_penssl] Error converting bytes to frame: %s", err)
 	} else {
-		s = fmt.Sprintf("PID:%d, Comm:%s, TID:%d, Version:%s, %s, Payload:\n%s%s%s, \nFrame: %#v", se.Pid, bytes.TrimSpace(se.Comm[:]), se.Tid, v.String(), connInfo, perfix, string(se.Data[:se.DataLen]), COLORRESET, frame)
+		out = fmt.Sprintf("PID:%d, Comm:%s, TID:%d, Version:%s, %s, Payload:\n%s%s%s, \nFrame: %#v", se.Pid, bytes.TrimSpace(se.Comm[:]), se.Tid, v.String(), connInfo, perfix, string(se.Data[:se.DataLen]), COLORRESET, frame)
 	}
-	return s
+
+	if shouldLog {
+
+		logFmt := new(LogFmt)
+		logFmt.Executable = string(bytes.TrimSpace(se.Comm[:]))
+
+		nix := time.Unix(int64(se.Timestamp), 0)
+		logFmt.Timestamp = nix.Format("2006-01-02 15:04:05.999999999 +0000 UTC")
+
+		logFmt.Data = string(se.Data[:se.DataLen])
+
+		frame, err := parsehttp2frame.BytesToHTTP2Frame(se.Data[:se.DataLen])
+
+		if err == nil {
+			if parsehttp2frame.GetFrameType(frame) == http2.FrameHeaders {
+				s, err := parsehttp2frame.Frame2String(frame)
+				if err == nil {
+					logFmt.Data = s
+				}
+
+			}
+		}
+
+		out = logFmt.String()
+
+	}
+
+	return out
 }
 
 func (se *SSLDataEvent) Clone() IEventStruct {
 	event := new(SSLDataEvent)
-	event.eventType = EventTypeModuleData //EventTypeEventProcessor
+	event.eventType = EventTypeOutput
+	// Let it process by eventProcessor
+	// Checkout: imodule.go -> Dispatcher()
+	// event.eventType = EventTypeEventProcessor
 	return event
 }
 
