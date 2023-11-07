@@ -1,11 +1,12 @@
 module ecapture
 
-go 1.21
+go 1.21.1
 
 require (
 	github.com/cilium/ebpf v0.12.3
 	github.com/gojue/ebpfmanager v0.4.4
 	github.com/google/gopacket v1.1.19
+	github.com/h0x0er/parsehttp2frame v0.0.0-20231107093752-5dcd0b1ed11c
 	github.com/shuLhan/go-bindata v4.0.0+incompatible
 	github.com/spf13/cobra v1.4.0
 	github.com/spf13/pflag v1.0.5
