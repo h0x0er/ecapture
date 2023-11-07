@@ -19,10 +19,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"net"
-
-	"github.com/h0x0er/parsehttp2frame"
-	"golang.org/x/net/http2"
-	"golang.org/x/sys/unix"
 )
 
 type AttachType int64
