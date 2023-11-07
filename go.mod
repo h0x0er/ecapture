@@ -6,7 +6,7 @@ require (
 	github.com/cilium/ebpf v0.12.3
 	github.com/gojue/ebpfmanager v0.4.4
 	github.com/google/gopacket v1.1.19
-	github.com/h0x0er/parsehttp2frame v0.0.1
+	github.com/h0x0er/parsehttp2frame v0.0.2
 	github.com/shuLhan/go-bindata v4.0.0+incompatible
 	github.com/spf13/cobra v1.4.0
 	github.com/spf13/pflag v1.0.5

@@ -198,7 +198,7 @@ func (se *SSLDataEvent) String() string {
 
 		if err == nil {
 			if parsehttp2frame.GetFrameType(frame) == http2.FrameHeaders {
-				s, err := parsehttp2frame.Frame2String(frame)
+				s, err := parsehttp2frame.Dump(frame)
 				if err == nil {
 					logFmt.Data = s
 				}
