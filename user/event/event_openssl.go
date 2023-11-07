@@ -18,12 +18,11 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"log"
 	"net"
-	"time"
 
 	"github.com/h0x0er/parsehttp2frame"
 	"golang.org/x/net/http2"
+	"golang.org/x/sys/unix"
 )
 
 type AttachType int64
@@ -161,41 +160,40 @@ func (se *SSLDataEvent) String() string {
 	shouldLog := false
 	out := ""
 
-	addr := "[TODO]"
-	if se.Addr != "" {
-		addr = se.Addr
-	}
-	var perfix, connInfo string
+	// addr := "[TODO]"
+	// if se.Addr != "" {
+	// 	addr = se.Addr
+	// }
+	// var perfix, connInfo string
 	switch AttachType(se.DataType) {
 	case ProbeEntry:
-		connInfo = fmt.Sprintf("%sRecived %d%s bytes from %s%s%s", COLORGREEN, se.DataLen, COLORRESET, COLORYELLOW, addr, COLORRESET)
-		perfix = COLORGREEN
+		// connInfo = fmt.Sprintf("%sRecived %d%s bytes from %s%s%s", COLORGREEN, se.DataLen, COLORRESET, COLORYELLOW, addr, COLORRESET)
+		// perfix = COLORGREEN
 	case ProbeRet:
-		connInfo = fmt.Sprintf("%sSend %d%s bytes to %s%s%s", COLORPURPLE, se.DataLen, COLORRESET, COLORYELLOW, addr, COLORRESET)
-		perfix = COLORPURPLE
+		// connInfo = fmt.Sprintf("%sSend %d%s bytes to %s%s%s", COLORPURPLE, se.DataLen, COLORRESET, COLORYELLOW, addr, COLORRESET)
+		// perfix = COLORPURPLE
 		shouldLog = true // only logging requests
 	default:
-		connInfo = fmt.Sprintf("%sUNKNOW_%d%s", COLORRED, se.DataType, COLORRESET)
-	}
-	v := TlsVersion{Version: se.Version}
-	out = fmt.Sprintf("PID:%d, Comm:%s, TID:%d, Version:%s, %s, Payload:\n%s%s%s", se.Pid, bytes.TrimSpace(se.Comm[:]), se.Tid, v.String(), connInfo, perfix, string(se.Data[:se.DataLen]), COLORRESET)
-
-	frame, err := parsehttp2frame.BytesToHTTP2Frame(se.Data[:se.DataLen])
-	if err != nil {
-		log.Printf("[event_penssl] Error converting bytes to frame: %s", err)
-	} else {
-		out = fmt.Sprintf("PID:%d, Comm:%s, TID:%d, Version:%s, %s, Payload:\n%s%s%s, \nFrame: %#v", se.Pid, bytes.TrimSpace(se.Comm[:]), se.Tid, v.String(), connInfo, perfix, string(se.Data[:se.DataLen]), COLORRESET, frame)
+		// connInfo = fmt.Sprintf("%sUNKNOW_%d%s", COLORRED, se.DataType, COLORRESET)
 	}
 
 	if shouldLog {
 
+		// v := TlsVersion{Version: se.Version}
+		// out = fmt.Sprintf("PID:%d, Comm:%s, TID:%d, Version:%s, %s, Payload:\n%s%s%s", se.Pid, bytes.TrimSpace(se.Comm[:]), se.Tid, v.String(), connInfo, perfix, string(se.Data[:se.DataLen]), COLORRESET)
+
+		// frame, err := parsehttp2frame.BytesToHTTP2Frame(se.Data[:se.DataLen])
+		// if err != nil {
+		// 	log.Printf("[event_penssl] Error converting bytes to frame: %s", err)
+		// } else {
+		// 	out = fmt.Sprintf("PID:%d, Comm:%s, TID:%d, Version:%s, %s, Payload:\n%s%s%s, \nFrame: %#v", se.Pid, bytes.TrimSpace(se.Comm[:]), se.Tid, v.String(), connInfo, perfix, string(se.Data[:se.DataLen]), COLORRESET, frame)
+		// }
+
 		logFmt := new(LogFmt)
-		logFmt.Executable = string(bytes.TrimSpace(se.Comm[:]))
+		logFmt.Executable = unix.ByteSliceToString(se.Comm[:])
 
-		nix := time.Unix(int64(se.Timestamp), 0)
-		logFmt.Timestamp = nix.Format("2006-01-02 15:04:05.999999999 +0000 UTC")
-
-		logFmt.Data = string(se.Data[:se.DataLen])
+		logFmt.Timestamp = se.Timestamp
+		logFmt.Data = unix.ByteSliceToString(se.Data[:se.DataLen])
 
 		frame, err := parsehttp2frame.BytesToHTTP2Frame(se.Data[:se.DataLen])
 
