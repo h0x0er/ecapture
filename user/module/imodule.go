@@ -22,12 +22,13 @@ import (
 	"ecapture/user/event"
 	"errors"
 	"fmt"
-	"github.com/cilium/ebpf"
-	"github.com/cilium/ebpf/perf"
-	"github.com/cilium/ebpf/ringbuf"
 	"log"
 	"os"
 	"strings"
+
+	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/perf"
+	"github.com/cilium/ebpf/ringbuf"
 )
 
 type IModule interface {
@@ -295,7 +296,12 @@ func (m *Module) Dispatcher(e event.IEventStruct) {
 		if m.conf.GetHex() {
 			m.logger.Println(e.StringHex())
 		} else {
-			m.logger.Println(e.String())
+			// NOTE: Get the string repr of event by calling event.String()
+			logString := e.String()
+			if len(logString) > 0 {
+				m.logger.Println(logString)
+
+			}
 		}
 	case event.EventTypeEventProcessor:
 		m.processor.Write(e)

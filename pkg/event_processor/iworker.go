@@ -97,7 +97,7 @@ func (ew *eventWorker) Display() {
 	// 重置状态
 	ew.processor.GetLogger().Printf("UUID:%s, Name:%s, Type:%d, Length:%d", ew.UUID, ew.parser.Name(), ew.parser.ParserType(), len(b))
 	ew.processor.GetLogger().Println("\n" + string(b))
-	//ew.parser.Reset()
+	ew.parser.Reset()
 	// 设定状态、重置包类型
 	ew.status = ProcessStateInit
 	ew.packetType = PacketTypeNull
