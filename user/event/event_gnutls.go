@@ -18,9 +18,6 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"log"
-
-	"github.com/h0x0er/parsehttp2frame"
 )
 
 type GnutlsDataEvent struct {
@@ -86,27 +83,7 @@ func (ge *GnutlsDataEvent) StringHex() string {
 }
 
 func (ge *GnutlsDataEvent) String() string {
-	var perfix, packetType string
-	switch AttachType(ge.DataType) {
-	case ProbeEntry:
-		packetType = fmt.Sprintf("%sRecived%s", COLORGREEN, COLORRESET)
-		perfix = COLORGREEN
-	case ProbeRet:
-		packetType = fmt.Sprintf("%sSend%s", COLORPURPLE, COLORRESET)
-		perfix = COLORPURPLE
-	default:
-		packetType = fmt.Sprintf("%sUNKNOW_%d%s", COLORRED, ge.DataType, COLORRESET)
-	}
-	s := fmt.Sprintf(" PID:%d, Comm:%s, TID:%d, TYPE:%s, DataLen:%d bytes, Payload:\n%s%s%s", ge.Pid, ge.Comm, ge.Tid, packetType, ge.DataLen, perfix, string(ge.Data[:ge.DataLen]), COLORRESET)
-
-	frame, err := parsehttp2frame.BytesToHTTP2Frame(ge.Data[:ge.DataLen])
-	if err != nil {
-		log.Printf("[GnutlsDataEvent] Error converting bytes to frame: %s", err)
-	} else {
-		s = fmt.Sprintf(" PID:%d, Comm:%s, TID:%d, TYPE:%s, DataLen:%d bytes, Payload:\n%s%s%s\nFrame: %#v", ge.Pid, ge.Comm, ge.Tid, packetType, ge.DataLen, perfix, string(ge.Data[:ge.DataLen]), COLORRESET, frame)
-	}
-
-	return s
+	return LogSSLEvent(ge.DataType, ge.Comm[:], ge.Timestamp, ge.Data, ge.DataLen)
 }
 
 func (ge *GnutlsDataEvent) Clone() IEventStruct {

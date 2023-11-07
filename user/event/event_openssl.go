@@ -19,10 +19,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"net"
-
-	"github.com/h0x0er/parsehttp2frame"
-	"golang.org/x/net/http2"
-	"golang.org/x/sys/unix"
 )
 
 type AttachType int64
@@ -159,65 +155,7 @@ func (se *SSLDataEvent) StringHex() string {
 }
 
 func (se *SSLDataEvent) String() string {
-	//addr := se.module.(*module.MOpenSSLProbe).GetConn(se.Pid, se.Fd)
-
-	shouldLog := false
-	out := ""
-	logFmt := new(LogFmt)
-
-	// addr := "[TODO]"
-	// if se.Addr != "" {
-	// 	addr = se.Addr
-	// }
-	// var perfix, connInfo string
-	switch AttachType(se.DataType) {
-	case ProbeEntry:
-		// connInfo = fmt.Sprintf("%sRecived %d%s bytes from %s%s%s", COLORGREEN, se.DataLen, COLORRESET, COLORYELLOW, addr, COLORRESET)
-		// perfix = COLORGREEN
-	case ProbeRet:
-		// connInfo = fmt.Sprintf("%sSend %d%s bytes to %s%s%s", COLORPURPLE, se.DataLen, COLORRESET, COLORYELLOW, addr, COLORRESET)
-		// perfix = COLORPURPLE
-		shouldLog = true // only logging requests
-	default:
-		// connInfo = fmt.Sprintf("%sUNKNOW_%d%s", COLORRED, se.DataType, COLORRESET)
-	}
-
-	if shouldLog {
-
-		// v := TlsVersion{Version: se.Version}
-		// out = fmt.Sprintf("PID:%d, Comm:%s, TID:%d, Version:%s, %s, Payload:\n%s%s%s", se.Pid, bytes.TrimSpace(se.Comm[:]), se.Tid, v.String(), connInfo, perfix, string(se.Data[:se.DataLen]), COLORRESET)
-
-		// frame, err := parsehttp2frame.BytesToHTTP2Frame(se.Data[:se.DataLen])
-		// if err != nil {
-		// 	log.Printf("[event_penssl] Error converting bytes to frame: %s", err)
-		// } else {
-		// 	out = fmt.Sprintf("PID:%d, Comm:%s, TID:%d, Version:%s, %s, Payload:\n%s%s%s, \nFrame: %#v", se.Pid, bytes.TrimSpace(se.Comm[:]), se.Tid, v.String(), connInfo, perfix, string(se.Data[:se.DataLen]), COLORRESET, frame)
-		// }
-
-		logFmt.Executable = unix.ByteSliceToString(se.Comm[:])
-
-		logFmt.Timestamp = se.Timestamp
-
-		frame, err := parsehttp2frame.BytesToHTTP2Frame(se.Data[:se.DataLen])
-
-		if err == nil {
-			if parsehttp2frame.GetFrameType(frame) == http2.FrameHeaders {
-				s, err := parsehttp2frame.Dump(frame)
-				if err == nil {
-					logFmt.Data = s
-				}
-			}
-		} else {
-			logFmt.Data = unix.ByteSliceToString(se.Data[:se.DataLen])
-		}
-
-	}
-
-	if len(logFmt.Data) > 0 {
-		out = logFmt.String()
-	}
-
-	return out
+	return LogSSLEvent(se.DataType, se.Comm[:], se.Timestamp, se.Data, se.DataLen)
 }
 
 func (se *SSLDataEvent) Clone() IEventStruct {
