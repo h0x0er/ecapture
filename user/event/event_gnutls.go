@@ -19,6 +19,8 @@ import (
 	"encoding/binary"
 	"fmt"
 	"log"
+
+	"github.com/h0x0er/parsehttp2frame"
 )
 
 type GnutlsDataEvent struct {
