@@ -5,7 +5,7 @@ import (
 )
 
 type LogFmt struct {
-	Timestamp  string `json:"timestamp"`
+	Timestamp  uint64 `json:"timestamp"`
 	Executable string `json:"executable"`
 	Data       string `json:"data"`
 }
