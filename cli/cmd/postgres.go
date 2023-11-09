@@ -53,8 +53,8 @@ func postgresCommandFunc(command *cobra.Command, args []string) {
 	mod := module.GetModuleByName(module.ModuleNamePostgres)
 
 	logger := log.New(os.Stdout, "postgress_", log.LstdFlags)
-	logger.Printf("ECAPTURE :: version :%s", GitVersion)
-	logger.Printf("ECAPTURE :: start to run %s module", mod.Name())
+	logger.Printf(" version :%s", GitVersion)
+	logger.Printf(" start to run %s module", mod.Name())
 
 	// save global config
 	gConf, e := getGlobalConf(command)
@@ -67,7 +67,7 @@ func postgresCommandFunc(command *cobra.Command, args []string) {
 	postgresConfig.Debug = gConf.Debug
 	postgresConfig.IsHex = gConf.IsHex
 	postgresConfig.SetPerCpuMapSize(gConf.mapSizeKB)
-	log.Printf("ECAPTURE :: pid info: %d", os.Getpid())
+	log.Printf("pid info: %d", os.Getpid())
 	//bc.Pid = globalFlags.Pid
 	if e := postgresConfig.Check(); e != nil {
 		logger.Fatal(e)
