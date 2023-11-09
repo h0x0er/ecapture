@@ -1,7 +1,10 @@
 package event
 
 import (
+	"bufio"
+	"bytes"
 	"encoding/json"
+	"net/http"
 
 	"github.com/h0x0er/http2util"
 	"golang.org/x/net/http2"
@@ -10,8 +13,10 @@ import (
 
 type LogFmt struct {
 	Timestamp  uint64 `json:"timestamp"`
-	Executable string `json:"executable"`
-	Data       string `json:"data"`
+	Executable string `json:"exe"`
+	Host       string `json:"host"`
+	Path       string `json:"path"`
+	Method     string `json:"method"`
 }
 
 func (l *LogFmt) String() string {
@@ -23,22 +28,28 @@ func LogString(exe []byte, timestamp uint64, data []byte) string {
 	logFmt := new(LogFmt)
 	logFmt.Executable = unix.ByteSliceToString(exe)
 	logFmt.Timestamp = timestamp
-	logFmt.Data = ""
 
-	frame, err := http2util.BytesToHTTP2Frame(data)
+	var req *http.Request = nil
+
+	frame, err := http2util.BytesToFrame(data)
 
 	if err == nil && http2util.GetFrameType(frame) == http2.FrameHeaders {
-
-		s, err := http2util.Dump(frame)
-		if err == nil {
-			logFmt.Data = s
-		}
+		req, _ = http2util.FrameToHTTPRequest(frame.(*http2.MetaHeadersFrame))
 
 	} else {
-		logFmt.Data = unix.ByteSliceToString(data)
+		
+		rd := bytes.NewReader(data)
+		bufRd := bufio.NewReader(rd)
+		req, _ = http.ReadRequest(bufRd)
+
 	}
 
-	if len(logFmt.Data) > 0 {
+	if req != nil {
+
+		logFmt.Method = req.Method
+		logFmt.Host = req.Host
+		logFmt.Path = req.RequestURI
+
 		return logFmt.String()
 	}
 
