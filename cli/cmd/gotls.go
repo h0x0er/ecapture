@@ -65,22 +65,22 @@ func goTLSCommandFunc(command *cobra.Command, args []string) {
 		logger.Fatal(err)
 	}
 	logger.SetOutput(gConf.writer)
-	logger.Printf("ECAPTURE :: %s Version : %s", cliName, GitVersion)
-	logger.Printf("ECAPTURE :: Pid Info : %d", os.Getpid())
+	logger.Printf(" %s Version : %s", cliName, GitVersion)
+	logger.Printf(" Pid Info : %d", os.Getpid())
 	var version kernel.Version
 	version, err = kernel.HostVersion()
-	logger.Printf("ECAPTURE :: Kernel Info : %s", version.String())
+	logger.Printf(" Kernel Info : %s", version.String())
 
 	mod := module.GetModuleByName(module.ModuleNameGotls)
 	if mod == nil {
-		logger.Printf("ECAPTURE :: \tcant found module: %s", module.ModuleNameGotls)
+		logger.Printf(" \tcant found module: %s", module.ModuleNameGotls)
 		return
 	}
 
 	var conf config.IConfig
 	conf = goc
 	if conf == nil {
-		logger.Printf("ECAPTURE :: \tcant found module %s config info.", mod.Name())
+		logger.Printf(" \tcant found module %s config info.", mod.Name())
 		return
 	}
 
