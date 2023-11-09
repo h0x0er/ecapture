@@ -18,11 +18,12 @@ import (
 	"context"
 	"ecapture/user/config"
 	"ecapture/user/module"
-	"github.com/spf13/cobra"
 	"log"
 	"os"
 	"os/signal"
 	"syscall"
+
+	"github.com/spf13/cobra"
 )
 
 var bc = config.NewBashConfig()
@@ -62,8 +63,8 @@ func bashCommandFunc(command *cobra.Command, args []string) {
 	mod := module.GetModuleByName(module.ModuleNameBash)
 
 	logger := log.New(os.Stdout, "bash_", log.LstdFlags)
-	logger.Printf("ECAPTURE :: version :%s", GitVersion)
-	logger.Printf("ECAPTURE :: start to run %s module", mod.Name())
+	logger.Printf(" version :%s", GitVersion)
+	logger.Printf(" start to run %s module", mod.Name())
 
 	// save global config
 	gConf, e := getGlobalConf(command)
@@ -77,7 +78,7 @@ func bashCommandFunc(command *cobra.Command, args []string) {
 	bc.Debug = gConf.Debug
 	bc.IsHex = gConf.IsHex
 
-	logger.Printf("ECAPTURE :: pid info :%d", os.Getpid())
+	logger.Printf(" pid info :%d", os.Getpid())
 	//bc.Pid = globalFlags.Pid
 	if e := bc.Check(); e != nil {
 		logger.Fatal(e)

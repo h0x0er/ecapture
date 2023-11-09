@@ -80,11 +80,11 @@ func openSSLCommandFunc(command *cobra.Command, args []string) {
 	}
 	logger.SetOutput(gConf.writer)
 
-	logger.Printf("ECAPTURE :: %s Version : %s", cliName, GitVersion)
-	logger.Printf("ECAPTURE :: Pid Info : %d", os.Getpid())
+	logger.Printf(" %s Version : %s", cliName, GitVersion)
+	logger.Printf(" Pid Info : %d", os.Getpid())
 	var version kernel.Version
 	version, err = kernel.HostVersion()
-	logger.Printf("ECAPTURE :: Kernel Info : %s", version.String())
+	logger.Printf(" Kernel Info : %s", version.String())
 	modNames := []string{}
 	if config.ElfArchIsandroid || oc.Write != "" {
 		modNames = []string{module.ModuleNameOpenssl}
@@ -99,7 +99,7 @@ func openSSLCommandFunc(command *cobra.Command, args []string) {
 	for _, modName := range modNames {
 		mod := module.GetModuleByName(modName)
 		if mod == nil {
-			logger.Printf("ECAPTURE :: \tcant found module: %s", modName)
+			logger.Printf(" \tcant found module: %s", modName)
 			break
 		}
 
@@ -112,12 +112,12 @@ func openSSLCommandFunc(command *cobra.Command, args []string) {
 		case module.ModuleNameNspr:
 			conf = nc
 		default:
-			logger.Printf("ECAPTURE :: \t unknow module :%s", mod.Name())
+			logger.Printf(" \t unknow module :%s", mod.Name())
 			continue
 		}
 
 		if conf == nil {
-			logger.Printf("ECAPTURE :: \tcant found module %s config info.", mod.Name())
+			logger.Printf(" \tcant found module %s config info.", mod.Name())
 			break
 		}
 
@@ -159,10 +159,10 @@ func openSSLCommandFunc(command *cobra.Command, args []string) {
 
 	// needs runmods > 0
 	if runMods > 0 {
-		logger.Printf("ECAPTURE :: \tstart %d modules", runMods)
+		logger.Printf(" \tstart %d modules", runMods)
 		<-stopper
 	} else {
-		logger.Println("ECAPTURE :: \tNo runnable modules, Exit(1)")
+		logger.Println(" \tNo runnable modules, Exit(1)")
 		os.Exit(1)
 	}
 	cancelFun()
