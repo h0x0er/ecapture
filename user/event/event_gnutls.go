@@ -82,7 +82,7 @@ func (ge *GnutlsDataEvent) String() string {
 
 func (ge *GnutlsDataEvent) Clone() IEventStruct {
 	event := new(GnutlsDataEvent)
-	event.eventType = EventTypeEventProcessor
+	event.eventType = EventTypeOutput
 	return event
 }
 
