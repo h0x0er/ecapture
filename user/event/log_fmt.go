@@ -34,7 +34,7 @@ func LogString(exe []byte, timestamp uint64, data []byte) string {
 	frame, err := http2util.BytesToFrame(data)
 
 	if err == nil && http2util.GetFrameType(frame) == http2.FrameHeaders {
-		req, _ = http2util.FrameToHTTPRequest(frame.(*http2.MetaHeadersFrame))
+		req, _ = http2util.FrameToHTTPRequest(frame)
 
 	} else {
 		
