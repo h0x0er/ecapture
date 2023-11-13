@@ -24,6 +24,25 @@ func (l *LogFmt) String() string {
 	return string(b)
 }
 
+func LogSSLEvent(probeType int64, exe []byte, timestamp uint64, data [4096]byte, dataLen int32) string {
+
+	if AttachType(probeType) != ProbeRet {
+		return ""
+	}
+
+	return LogString(exe, timestamp, data[:dataLen])
+
+}
+
+func LogGoTLSEvent(payloadType uint8, exe []byte, timestamp uint64, data []byte, dataLen int32) string {
+
+	if payloadType != 0 {
+		return ""
+	}
+	return LogString(exe, timestamp, data[:dataLen])
+
+}
+
 func LogString(exe []byte, timestamp uint64, data []byte) string {
 	logFmt := new(LogFmt)
 	logFmt.Executable = unix.ByteSliceToString(exe)
@@ -57,21 +76,4 @@ func LogString(exe []byte, timestamp uint64, data []byte) string {
 
 }
 
-func LogSSLEvent(probeType int64, exe []byte, timestamp uint64, data [4096]byte, dataLen int32) string {
 
-	if AttachType(probeType) != ProbeRet {
-		return ""
-	}
-
-	return LogString(exe, timestamp, data[:dataLen])
-
-}
-
-func LogGoTLSEvent(payloadType uint8, exe []byte, timestamp uint64, data []byte, dataLen int32) string {
-
-	if payloadType != 0 {
-		return ""
-	}
-	return LogString(exe, timestamp, data[:dataLen])
-
-}
