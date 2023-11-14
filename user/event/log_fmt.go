@@ -4,7 +4,11 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"os"
+	"sync"
+	"time"
 
 	"github.com/h0x0er/http2util"
 	"golang.org/x/net/http2"
@@ -56,7 +60,7 @@ func LogString(exe []byte, timestamp uint64, data []byte) string {
 		req, _ = http2util.FrameToHTTPRequest(frame)
 
 	} else {
-		
+
 		rd := bytes.NewReader(data)
 		bufRd := bufio.NewReader(rd)
 		req, _ = http.ReadRequest(bufRd)
@@ -69,11 +73,29 @@ func LogString(exe []byte, timestamp uint64, data []byte) string {
 		logFmt.Host = req.Host
 		logFmt.Path = req.RequestURI
 
-		return logFmt.String()
+		out := logFmt.String()
+
+		go writeLog(out)
+
+		return out
 	}
 
 	return ""
 
 }
 
+var logMutex sync.Mutex
 
+func writeLog(message string) {
+	logMutex.Lock()
+	defer logMutex.Unlock()
+
+	f, _ := os.OpenFile("/home/runner/work/_temp/network_events.log",
+		os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+
+	defer f.Close()
+
+	location, _ := time.LoadLocation("Etc/GMT")
+	f.WriteString(fmt.Sprintf("%s:%s\n", time.Now().In(location).Format("Mon, 02 Jan 2006 15:04:05 MST"), message))
+
+}
