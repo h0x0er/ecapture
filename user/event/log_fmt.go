@@ -51,7 +51,7 @@ func LogString(exe []byte, timestamp uint64, data []byte) string {
 	logFmt := new(LogFmt)
 	logFmt.Executable = unix.ByteSliceToString(exe)
 
-	t, err := DecodeKtime(int64(timestamp), false)
+	t, err := DecodeKtime(int64(timestamp), true)
 	if err == nil {
 		logFmt.Timestamp = uint64(t.Unix())
 	} else {
