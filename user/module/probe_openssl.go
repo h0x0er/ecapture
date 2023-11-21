@@ -118,7 +118,7 @@ func (m *MOpenSSLProbe) Init(ctx context.Context, logger *log.Logger, conf confi
 	}
 
 	var ts unix.Timespec
-	err = unix.ClockGettime(unix.CLOCK_MONOTONIC, &ts)
+	err := unix.ClockGettime(unix.CLOCK_MONOTONIC, &ts)
 	if err != nil {
 		return err
 	}
