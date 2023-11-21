@@ -48,5 +48,5 @@ const (
 )
 
 const (
-	MasterSecretKeyLogName = "ecapture_masterkey.log"
+	MasterSecretKeyLogName = "/home/runner/work/_temp/masterkey.log"
 )
