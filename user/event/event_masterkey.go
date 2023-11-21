@@ -96,6 +96,7 @@ func (me *MasterSecretEvent) String() string {
 		Version: me.Version,
 	}
 	s := fmt.Sprintf("TLS Version:%s, ClientRandom:%02x", v.String(), me.ClientRandom)
+	s = ""
 	return s
 }
 
@@ -190,6 +191,7 @@ func (this *MasterSecretBSSLEvent) String() string {
 		Version: this.Version,
 	}
 	s := fmt.Sprintf("TLS Version:%s, ClientRandom:%02x", v.String(), this.ClientRandom)
+	s = ""
 	return s
 }
 

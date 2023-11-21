@@ -13,6 +13,7 @@ import (
 	"log"
 	"math"
 	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -72,25 +73,25 @@ func (g *GoTLSProbe) Init(ctx context.Context, l *log.Logger, cfg config.IConfig
 		g.isRegisterABI = true
 	}
 
-	// g.keyloggerFilename = MasterSecretKeyLogName
-	// file, err := os.OpenFile(g.keyloggerFilename, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
-	// if err != nil {
-	// 	return err
-	// }
-	// g.keylogger = file
+	g.keyloggerFilename = MasterSecretKeyLogName
+	file, err := os.OpenFile(g.keyloggerFilename, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
+	if err != nil {
+		return err
+	}
+	g.keylogger = file
 
-	// var writeFile = g.conf.(*config.GoTLSConfig).Write
-	// if len(writeFile) > 0 {
-	// 	g.eBPFProgramType = EbpfprogramtypeOpensslTc
-	// 	fileInfo, err := filepath.Abs(writeFile)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// 	g.pcapngFilename = fileInfo
-	// } else {
-	// 	g.eBPFProgramType = EbpfprogramtypeOpensslUprobe
-	// 	g.logger.Printf("%s\tmaster key keylogger: %s\n", g.Name(), g.keyloggerFilename)
-	// }
+	var writeFile = g.conf.(*config.GoTLSConfig).Write
+	if len(writeFile) > 0 {
+		g.eBPFProgramType = EbpfprogramtypeOpensslTc
+		fileInfo, err := filepath.Abs(writeFile)
+		if err != nil {
+			return err
+		}
+		g.pcapngFilename = fileInfo
+	} else {
+		g.eBPFProgramType = EbpfprogramtypeOpensslUprobe
+		g.logger.Printf("%s\tmaster key keylogger: %s\n", g.Name(), g.keyloggerFilename)
+	}
 
 	var ts unix.Timespec
 	err = unix.ClockGettime(unix.CLOCK_MONOTONIC, &ts)
@@ -342,35 +343,40 @@ func (g *GoTLSProbe) Close() error {
 }
 
 func (g *GoTLSProbe) saveMasterSecret(secretEvent *event.MasterSecretGotlsEvent) {
-	var label, clientRandom, secret string
-	label = string(secretEvent.Label[0:secretEvent.LabelLen])
-	clientRandom = string(secretEvent.ClientRandom[0:secretEvent.ClientRandomLen])
-	secret = string(secretEvent.MasterSecret[0:secretEvent.MasterSecretLen])
+	/*
+	   var label, clientRandom, secret string
+	   label = string(secretEvent.Label[0:secretEvent.LabelLen])
+	   clientRandom = string(secretEvent.ClientRandom[0:secretEvent.ClientRandomLen])
+	   secret = string(secretEvent.MasterSecret[0:secretEvent.MasterSecretLen])
 
-	var k = fmt.Sprintf("%s-%02x", label, clientRandom)
+	   var k = fmt.Sprintf("%s-%02x", label, clientRandom)
 
-	_, f := g.masterSecrets[k]
-	if f {
-		// 已存在该随机数的masterSecret，不需要重复写入
-		return
-	}
+	   _, f := g.masterSecrets[k]
 
-	// TODO 保存多个lable 整组里？？？
-	// save to file
-	var b string
-	b = fmt.Sprintf("%s %02x %02x\n", label, clientRandom, secret)
-	l, e := g.keylogger.WriteString(b)
-	if e != nil {
-		g.logger.Fatalf("%s: save masterSecrets to file error:%s", secretEvent.String(), e.Error())
-		return
-	}
-	g.logger.Printf("%s: save CLIENT_RANDOM %02x to file success, %d bytes", label, clientRandom, l)
-	e = g.savePcapngSslKeyLog([]byte(b))
-	if e != nil {
-		g.logger.Fatalf("%s: save masterSecrets to pcapng error:%s", secretEvent.String(), e.Error())
-		return
-	}
+	   	if f {
+	   		// 已存在该随机数的masterSecret，不需要重复写入
+	   		return
+	   	}
 
+	   // TODO 保存多个lable 整组里？？？
+	   // save to file
+	   var b string
+	   b = fmt.Sprintf("%s %02x %02x\n", label, clientRandom, secret)
+	   l, e := g.keylogger.WriteString(b)
+
+	   	if e != nil {
+	   		g.logger.Fatalf("%s: save masterSecrets to file error:%s", secretEvent.String(), e.Error())
+	   		return
+	   	}
+
+	   g.logger.Printf("%s: save CLIENT_RANDOM %02x to file success, %d bytes", label, clientRandom, l)
+	   e = g.savePcapngSslKeyLog([]byte(b))
+
+	   	if e != nil {
+	   		g.logger.Fatalf("%s: save masterSecrets to pcapng error:%s", secretEvent.String(), e.Error())
+	   		return
+	   	}
+	*/
 }
 
 func (g *GoTLSProbe) Dispatcher(eventStruct event.IEventStruct) {
