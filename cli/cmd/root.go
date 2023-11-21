@@ -22,7 +22,7 @@ import (
 )
 
 const (
-	cliName        = "ecapture"
+	cliName        = "sslcapture"
 	cliDescription = "capture text SSL content without CA cert by ebpf hook."
 )
 
