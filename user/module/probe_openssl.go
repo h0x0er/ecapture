@@ -92,27 +92,27 @@ func (m *MOpenSSLProbe) Init(ctx context.Context, logger *log.Logger, conf confi
 	m.sslVersionBpfMap = make(map[string]string)
 
 	//fd := os.Getpid()
-	m.keyloggerFilename = MasterSecretKeyLogName
-	file, err := os.OpenFile(m.keyloggerFilename, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
-	if err != nil {
-		return err
-	}
-	m.keylogger = file
-	var writeFile = m.conf.(*config.OpensslConfig).Write
-	if len(writeFile) > 0 {
-		m.eBPFProgramType = EbpfprogramtypeOpensslTc
-		fileInfo, err := filepath.Abs(writeFile)
-		if err != nil {
-			return err
-		}
-		m.pcapngFilename = fileInfo
-	} else {
-		m.eBPFProgramType = EbpfprogramtypeOpensslUprobe
-		m.logger.Printf("%s\tmaster key keylogger: %s\n", m.Name(), m.keyloggerFilename)
-	}
+	// m.keyloggerFilename = MasterSecretKeyLogName
+	// file, err := os.OpenFile(m.keyloggerFilename, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
+	// if err != nil {
+	// 	return err
+	// }
+	// m.keylogger = file
+	// var writeFile = m.conf.(*config.OpensslConfig).Write
+	// if len(writeFile) > 0 {
+	// 	m.eBPFProgramType = EbpfprogramtypeOpensslTc
+	// 	fileInfo, err := filepath.Abs(writeFile)
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// 	m.pcapngFilename = fileInfo
+	// } else {
+	// 	m.eBPFProgramType = EbpfprogramtypeOpensslUprobe
+	// 	m.logger.Printf("%s\tmaster key keylogger: %s\n", m.Name(), m.keyloggerFilename)
+	// }
 
 	var ts unix.Timespec
-	err = unix.ClockGettime(unix.CLOCK_MONOTONIC, &ts)
+	err := unix.ClockGettime(unix.CLOCK_MONOTONIC, &ts)
 	if err != nil {
 		return err
 	}

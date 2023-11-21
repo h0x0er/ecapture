@@ -13,7 +13,6 @@ import (
 	"log"
 	"math"
 	"os"
-	"path/filepath"
 	"sync"
 	"time"
 
@@ -73,25 +72,25 @@ func (g *GoTLSProbe) Init(ctx context.Context, l *log.Logger, cfg config.IConfig
 		g.isRegisterABI = true
 	}
 
-	g.keyloggerFilename = MasterSecretKeyLogName
-	file, err := os.OpenFile(g.keyloggerFilename, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
-	if err != nil {
-		return err
-	}
-	g.keylogger = file
+	// g.keyloggerFilename = MasterSecretKeyLogName
+	// file, err := os.OpenFile(g.keyloggerFilename, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
+	// if err != nil {
+	// 	return err
+	// }
+	// g.keylogger = file
 
-	var writeFile = g.conf.(*config.GoTLSConfig).Write
-	if len(writeFile) > 0 {
-		g.eBPFProgramType = EbpfprogramtypeOpensslTc
-		fileInfo, err := filepath.Abs(writeFile)
-		if err != nil {
-			return err
-		}
-		g.pcapngFilename = fileInfo
-	} else {
-		g.eBPFProgramType = EbpfprogramtypeOpensslUprobe
-		g.logger.Printf("%s\tmaster key keylogger: %s\n", g.Name(), g.keyloggerFilename)
-	}
+	// var writeFile = g.conf.(*config.GoTLSConfig).Write
+	// if len(writeFile) > 0 {
+	// 	g.eBPFProgramType = EbpfprogramtypeOpensslTc
+	// 	fileInfo, err := filepath.Abs(writeFile)
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// 	g.pcapngFilename = fileInfo
+	// } else {
+	// 	g.eBPFProgramType = EbpfprogramtypeOpensslUprobe
+	// 	g.logger.Printf("%s\tmaster key keylogger: %s\n", g.Name(), g.keyloggerFilename)
+	// }
 
 	var ts unix.Timespec
 	err = unix.ClockGettime(unix.CLOCK_MONOTONIC, &ts)
