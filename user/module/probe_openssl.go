@@ -17,9 +17,7 @@ package module
 import (
 	"bytes"
 	"context"
-	"crypto"
 	"ecapture/assets"
-	"ecapture/pkg/util/hkdf"
 	"ecapture/user/config"
 	"ecapture/user/event"
 	"fmt"
@@ -118,7 +116,7 @@ func (m *MOpenSSLProbe) Init(ctx context.Context, logger *log.Logger, conf confi
 	}
 
 	var ts unix.Timespec
-	err := unix.ClockGettime(unix.CLOCK_MONOTONIC, &ts)
+	err = unix.ClockGettime(unix.CLOCK_MONOTONIC, &ts)
 	if err != nil {
 		return err
 	}
@@ -353,54 +351,59 @@ func (m *MOpenSSLProbe) GetConn(pid, fd uint32) string {
 }
 
 func (m *MOpenSSLProbe) saveMasterSecret(secretEvent *event.MasterSecretEvent) {
+	/*
+	   var k = fmt.Sprintf("%02x", secretEvent.ClientRandom)
 
-	var k = fmt.Sprintf("%02x", secretEvent.ClientRandom)
+	   _, f := m.masterKeys[k]
 
-	_, f := m.masterKeys[k]
-	if f {
-		// 已存在该随机数的masterSecret，不需要重复写入
-		return
-	}
-	m.masterKeys[k] = true
+	   	if f {
+	   		// 已存在该随机数的masterSecret，不需要重复写入
+	   		return
+	   	}
 
-	// save to file
-	var b *bytes.Buffer
-	switch secretEvent.Version {
-	case event.Tls12Version:
-		b = bytes.NewBufferString(fmt.Sprintf("%s %02x %02x\n", hkdf.KeyLogLabelTLS12, secretEvent.ClientRandom, secretEvent.MasterKey))
-	case event.Tls13Version:
-		var length int
-		var transcript crypto.Hash
-		switch uint16(secretEvent.CipherId & 0x0000FFFF) {
-		case hkdf.TlsAes128GcmSha256, hkdf.TlsChacha20Poly1305Sha256:
-			length = 32
-			transcript = crypto.SHA256
-		case hkdf.TlsAes256GcmSha384:
-			length = 48
-			transcript = crypto.SHA384
-		default:
-			m.logger.Printf("non-TLSv1.3 cipher suite found, CipherId: %d", secretEvent.CipherId)
-			return
-		}
+	   m.masterKeys[k] = true
 
-		clientHandshakeSecret := hkdf.ExpandLabel(secretEvent.HandshakeSecret[:length],
-			hkdf.ClientHandshakeTrafficLabel, secretEvent.HandshakeTrafficHash[:length], length, transcript)
-		b = bytes.NewBufferString(fmt.Sprintf("%s %02x %02x\n",
-			hkdf.KeyLogLabelClientHandshake, secretEvent.ClientRandom, clientHandshakeSecret))
+	   // save to file
+	   var b *bytes.Buffer
+	   switch secretEvent.Version {
+	   case event.Tls12Version:
 
-		serverHandshakeSecret := hkdf.ExpandLabel(secretEvent.HandshakeSecret[:length],
-			hkdf.ServerHandshakeTrafficLabel, secretEvent.HandshakeTrafficHash[:length], length, transcript)
-		b.WriteString(fmt.Sprintf("%s %02x %02x\n",
-			hkdf.KeyLogLabelServerHandshake, secretEvent.ClientRandom, serverHandshakeSecret))
+	   	b = bytes.NewBufferString(fmt.Sprintf("%s %02x %02x\n", hkdf.KeyLogLabelTLS12, secretEvent.ClientRandom, secretEvent.MasterKey))
 
-		b.WriteString(fmt.Sprintf("%s %02x %02x\n",
-			hkdf.KeyLogLabelClientTraffic, secretEvent.ClientRandom, secretEvent.ClientAppTrafficSecret))
+	   case event.Tls13Version:
 
-		b.WriteString(fmt.Sprintf("%s %02x %02x\n",
-			hkdf.KeyLogLabelServerTraffic, secretEvent.ClientRandom, secretEvent.ServerAppTrafficSecret))
+	   	var length int
+	   	var transcript crypto.Hash
+	   	switch uint16(secretEvent.CipherId & 0x0000FFFF) {
+	   	case hkdf.TlsAes128GcmSha256, hkdf.TlsChacha20Poly1305Sha256:
+	   		length = 32
+	   		transcript = crypto.SHA256
+	   	case hkdf.TlsAes256GcmSha384:
+	   		length = 48
+	   		transcript = crypto.SHA384
+	   	default:
+	   		m.logger.Printf("non-TLSv1.3 cipher suite found, CipherId: %d", secretEvent.CipherId)
+	   		return
+	   	}
 
-		b.WriteString(fmt.Sprintf("%s %02x %02x\n",
-			hkdf.KeyLogLabelExporterSecret, secretEvent.ClientRandom, secretEvent.ExporterMasterSecret[:length]))
+	   	clientHandshakeSecret := hkdf.ExpandLabel(secretEvent.HandshakeSecret[:length],
+	   		hkdf.ClientHandshakeTrafficLabel, secretEvent.HandshakeTrafficHash[:length], length, transcript)
+	   	b = bytes.NewBufferString(fmt.Sprintf("%s %02x %02x\n",
+	   		hkdf.KeyLogLabelClientHandshake, secretEvent.ClientRandom, clientHandshakeSecret))
+
+	   	serverHandshakeSecret := hkdf.ExpandLabel(secretEvent.HandshakeSecret[:length],
+	   		hkdf.ServerHandshakeTrafficLabel, secretEvent.HandshakeTrafficHash[:length], length, transcript)
+	   	b.WriteString(fmt.Sprintf("%s %02x %02x\n",
+	   		hkdf.KeyLogLabelServerHandshake, secretEvent.ClientRandom, serverHandshakeSecret))
+
+	   	b.WriteString(fmt.Sprintf("%s %02x %02x\n",
+	   		hkdf.KeyLogLabelClientTraffic, secretEvent.ClientRandom, secretEvent.ClientAppTrafficSecret))
+
+	   	b.WriteString(fmt.Sprintf("%s %02x %02x\n",
+	   		hkdf.KeyLogLabelServerTraffic, secretEvent.ClientRandom, secretEvent.ServerAppTrafficSecret))
+
+	   	b.WriteString(fmt.Sprintf("%s %02x %02x\n",
+	   		hkdf.KeyLogLabelExporterSecret, secretEvent.ClientRandom, secretEvent.ExporterMasterSecret[:length]))
 
 	default:
 		b = bytes.NewBufferString(fmt.Sprintf("%s %02x %02x\n", hkdf.KeyLogLabelTLS12, secretEvent.ClientRandom, secretEvent.MasterKey))
@@ -428,50 +431,51 @@ func (m *MOpenSSLProbe) saveMasterSecret(secretEvent *event.MasterSecretEvent) {
 }
 
 func (m *MOpenSSLProbe) saveMasterSecretBSSL(secretEvent *event.MasterSecretBSSLEvent) {
-	var k = fmt.Sprintf("%02x", secretEvent.ClientRandom)
+	/*
+		var k = fmt.Sprintf("%02x", secretEvent.ClientRandom)
 
-	_, f := m.masterKeys[k]
-	if f {
-		// 已存在该随机数的masterSecret，不需要重复写入
-		return
-	}
-
-	// save to file
-	var b *bytes.Buffer
-	switch secretEvent.Version {
-	case event.Tls12Version:
-		if m.bSSLEvent12NullSecrets(secretEvent) {
+		_, f := m.masterKeys[k]
+		if f {
+			// 已存在该随机数的masterSecret，不需要重复写入
 			return
 		}
-		var length = int(secretEvent.HashLen)
-		if length > event.MasterSecretMaxLen {
-			length = event.MasterSecretMaxLen
-			m.logger.Println("master secret length is too long, truncate to 48 bytes, but it may cause keylog file error")
+
+		// save to file
+		var b *bytes.Buffer
+		switch secretEvent.Version {
+		case event.Tls12Version:
+			if m.bSSLEvent12NullSecrets(secretEvent) {
+				return
+			}
+			var length = int(secretEvent.HashLen)
+			if length > event.MasterSecretMaxLen {
+				length = event.MasterSecretMaxLen
+				m.logger.Println("master secret length is too long, truncate to 48 bytes, but it may cause keylog file error")
+			}
+			b = bytes.NewBufferString(fmt.Sprintf("%s %02x %02x\n", hkdf.KeyLogLabelTLS12, secretEvent.ClientRandom, secretEvent.Secret[:length]))
+			m.masterKeys[k] = true
+		case event.Tls13Version:
+			fallthrough
+		default:
+			var length int
+			length = int(secretEvent.HashLen)
+			if length > event.EvpMaxMdSize {
+				m.logger.Println("master secret length is too long, truncate to 64 bytes, but it may cause keylog file error")
+				length = event.EvpMaxMdSize
+			}
+			// 判断 密钥是否为空
+			if m.bSSLEvent13NullSecrets(secretEvent) {
+				return
+			}
+			m.masterKeys[k] = true
+			//m.logger.Printf("secretEvent.HashLen:%d, CipherId:%d", secretEvent.HashLen, secretEvent.HashLen)
+			b = bytes.NewBufferString(fmt.Sprintf("%s %02x %02x\n", hkdf.KeyLogLabelClientHandshake, secretEvent.ClientRandom, secretEvent.ClientHandshakeSecret[:length]))
+			//b.WriteString(fmt.Sprintf("%s %02x %02x\n", hkdf.KeyLogLabelClientEarlyTafficSecret, secretEvent.ClientRandom, secretEvent.EarlyTrafficSecret[:length]))
+			b.WriteString(fmt.Sprintf("%s %02x %02x\n", hkdf.KeyLogLabelClientTraffic, secretEvent.ClientRandom, secretEvent.ClientTrafficSecret0[:length]))
+			b.WriteString(fmt.Sprintf("%s %02x %02x\n", hkdf.KeyLogLabelServerHandshake, secretEvent.ClientRandom, secretEvent.ServerHandshakeSecret[:length]))
+			b.WriteString(fmt.Sprintf("%s %02x %02x\n", hkdf.KeyLogLabelServerTraffic, secretEvent.ClientRandom, secretEvent.ServerTrafficSecret0[:length]))
+			b.WriteString(fmt.Sprintf("%s %02x %02x\n", hkdf.KeyLogLabelExporterSecret, secretEvent.ClientRandom, secretEvent.ExporterSecret[:length]))
 		}
-		b = bytes.NewBufferString(fmt.Sprintf("%s %02x %02x\n", hkdf.KeyLogLabelTLS12, secretEvent.ClientRandom, secretEvent.Secret[:length]))
-		m.masterKeys[k] = true
-	case event.Tls13Version:
-		fallthrough
-	default:
-		var length int
-		length = int(secretEvent.HashLen)
-		if length > event.EvpMaxMdSize {
-			m.logger.Println("master secret length is too long, truncate to 64 bytes, but it may cause keylog file error")
-			length = event.EvpMaxMdSize
-		}
-		// 判断 密钥是否为空
-		if m.bSSLEvent13NullSecrets(secretEvent) {
-			return
-		}
-		m.masterKeys[k] = true
-		//m.logger.Printf("secretEvent.HashLen:%d, CipherId:%d", secretEvent.HashLen, secretEvent.HashLen)
-		b = bytes.NewBufferString(fmt.Sprintf("%s %02x %02x\n", hkdf.KeyLogLabelClientHandshake, secretEvent.ClientRandom, secretEvent.ClientHandshakeSecret[:length]))
-		//b.WriteString(fmt.Sprintf("%s %02x %02x\n", hkdf.KeyLogLabelClientEarlyTafficSecret, secretEvent.ClientRandom, secretEvent.EarlyTrafficSecret[:length]))
-		b.WriteString(fmt.Sprintf("%s %02x %02x\n", hkdf.KeyLogLabelClientTraffic, secretEvent.ClientRandom, secretEvent.ClientTrafficSecret0[:length]))
-		b.WriteString(fmt.Sprintf("%s %02x %02x\n", hkdf.KeyLogLabelServerHandshake, secretEvent.ClientRandom, secretEvent.ServerHandshakeSecret[:length]))
-		b.WriteString(fmt.Sprintf("%s %02x %02x\n", hkdf.KeyLogLabelServerTraffic, secretEvent.ClientRandom, secretEvent.ServerTrafficSecret0[:length]))
-		b.WriteString(fmt.Sprintf("%s %02x %02x\n", hkdf.KeyLogLabelExporterSecret, secretEvent.ClientRandom, secretEvent.ExporterSecret[:length]))
-	}
 
 	v := event.TlsVersion{Version: secretEvent.Version}
 	//
