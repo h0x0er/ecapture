@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -234,18 +235,20 @@ func (g *GoTLSProbe) Close() error {
 }
 
 func (g *GoTLSProbe) saveMasterSecret(secretEvent *event.MasterSecretGotlsEvent) {
-	var label, clientRandom, secret string
-	label = string(secretEvent.Label[0:secretEvent.LabelLen])
-	clientRandom = string(secretEvent.ClientRandom[0:secretEvent.ClientRandomLen])
-	secret = string(secretEvent.MasterSecret[0:secretEvent.MasterSecretLen])
+	/*
+	   var label, clientRandom, secret string
+	   label = string(secretEvent.Label[0:secretEvent.LabelLen])
+	   clientRandom = string(secretEvent.ClientRandom[0:secretEvent.ClientRandomLen])
+	   secret = string(secretEvent.MasterSecret[0:secretEvent.MasterSecretLen])
 
-	var k = fmt.Sprintf("%s-%02x", label, clientRandom)
+	   var k = fmt.Sprintf("%s-%02x", label, clientRandom)
 
-	_, f := g.masterSecrets[k]
-	if f {
-		// 已存在该随机数的masterSecret，不需要重复写入
-		return
-	}
+	   _, f := g.masterSecrets[k]
+
+	   	if f {
+	   		// 已存在该随机数的masterSecret，不需要重复写入
+	   		return
+	   	}
 
 	// TODO 保存多个lable 整组里？？？
 	// save to file
