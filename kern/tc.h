@@ -52,7 +52,7 @@ struct {
     __uint(type, BPF_MAP_TYPE_PERF_EVENT_ARRAY);
     __uint(key_size, sizeof(u32));
     __uint(value_size, sizeof(u32));
-    __uint(max_entries, 10240);
+    __uint(max_entries, 1024);
 } skb_events SEC(".maps");
 
 struct {
@@ -67,7 +67,7 @@ struct {
     __uint(type, BPF_MAP_TYPE_LRU_HASH);
     __type(key, struct net_id_t);
     __type(value, struct net_ctx_t);
-    __uint(max_entries, 10240);
+    __uint(max_entries, 1024);
 } network_map SEC(".maps");
 
 ////////////////////// General helper functions //////////////////////
