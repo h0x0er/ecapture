@@ -106,7 +106,7 @@ struct {
     __uint(type, BPF_MAP_TYPE_HASH);
     __type(key, u64);
     __type(value, u64);
-    __uint(max_entries, 10240);
+    __uint(max_entries, 1024);
 } ssl_st_fd SEC(".maps");
 
 
