@@ -149,13 +149,21 @@ func (g *GoTLSProbe) start() error {
 		return err
 	}
 
+	initStartTime := time.Now()
 	if err = g.bpfManager.InitWithOptions(bytes.NewReader(byteBuf), g.bpfManagerOptions); err != nil {
 		return fmt.Errorf("couldn't init manager %v", err)
 	}
+	initTime := time.Since(initStartTime)
+
 	// start the bootstrap manager
+	bootstrapStartTime := time.Now()
+
 	if err = g.bpfManager.Start(); err != nil {
 		return fmt.Errorf("couldn't start bootstrap manager %v .", err)
 	}
+	bootstrapTime := time.Since(bootstrapStartTime)
+
+	g.logger.Printf("bpfManager.InitWithOptions() Time: %d seconds; bpfManager.Start() Time: %d seconds", initTime.Seconds(), bootstrapTime.Seconds())
 
 	// 加载map信息，map对应events decode表。
 	switch g.eBPFProgramType {
@@ -236,41 +244,42 @@ func (g *GoTLSProbe) Close() error {
 
 func (g *GoTLSProbe) saveMasterSecret(secretEvent *event.MasterSecretGotlsEvent) {
 	/*
-	   var label, clientRandom, secret string
-	   label = string(secretEvent.Label[0:secretEvent.LabelLen])
-	   clientRandom = string(secretEvent.ClientRandom[0:secretEvent.ClientRandomLen])
-	   secret = string(secretEvent.MasterSecret[0:secretEvent.MasterSecretLen])
+		   var label, clientRandom, secret string
+		   label = string(secretEvent.Label[0:secretEvent.LabelLen])
+		   clientRandom = string(secretEvent.ClientRandom[0:secretEvent.ClientRandomLen])
+		   secret = string(secretEvent.MasterSecret[0:secretEvent.MasterSecretLen])
 
-	   var k = fmt.Sprintf("%s-%02x", label, clientRandom)
+		   var k = fmt.Sprintf("%s-%02x", label, clientRandom)
 
-	   _, f := g.masterSecrets[k]
+		   _, f := g.masterSecrets[k]
 
-	   	if f {
-	   		// 已存在该随机数的masterSecret，不需要重复写入
-	   		return
-	   	}
+		   	if f {
+		   		// 已存在该随机数的masterSecret，不需要重复写入
+		   		return
+		   	}
 
-	// TODO 保存多个lable 整组里？？？
-	// save to file
-	var b string
-	var e error
-	b = fmt.Sprintf("%s %02x %02x\n", label, clientRandom, secret)
-	switch g.eBPFProgramType {
-	case TlsCaptureModelTypeKeylog:
-		var l int
-		l, e = g.keylogger.WriteString(b)
-		if e != nil {
-			g.logger.Fatalf("%s: save masterSecrets to file error:%s", secretEvent.String(), e.Error())
-			return
+		// TODO 保存多个lable 整组里？？？
+		// save to file
+		var b string
+		var e error
+		b = fmt.Sprintf("%s %02x %02x\n", label, clientRandom, secret)
+		switch g.eBPFProgramType {
+		case TlsCaptureModelTypeKeylog:
+			var l int
+			l, e = g.keylogger.WriteString(b)
+			if e != nil {
+				g.logger.Fatalf("%s: save masterSecrets to file error:%s", secretEvent.String(), e.Error())
+				return
+			}
+			g.logger.Printf("%s: save CLIENT_RANDOM %02x to file success, %d bytes", label, clientRandom, l)
+		case TlsCaptureModelTypePcap:
+			e = g.savePcapngSslKeyLog([]byte(b))
+			if e != nil {
+				g.logger.Fatalf("%s: save masterSecrets to pcapng error:%s", secretEvent.String(), e.Error())
+				return
+			}
 		}
-		g.logger.Printf("%s: save CLIENT_RANDOM %02x to file success, %d bytes", label, clientRandom, l)
-	case TlsCaptureModelTypePcap:
-		e = g.savePcapngSslKeyLog([]byte(b))
-		if e != nil {
-			g.logger.Fatalf("%s: save masterSecrets to pcapng error:%s", secretEvent.String(), e.Error())
-			return
-		}
-	}
+	*/
 }
 
 func (g *GoTLSProbe) Dispatcher(eventStruct event.IEventStruct) {
