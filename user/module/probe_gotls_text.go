@@ -26,20 +26,28 @@ import (
 
 func (g *GoTLSProbe) setupManagersText() error {
 	var (
-		sec, readSec string
-		fn, readFn   string
+		sec string
+		fn  string
+		/*
+			readSec string
+			readFn string
+		*/
 	)
 
 	if g.isRegisterABI {
 		sec = "uprobe/gotls_write_register"
 		fn = "gotls_write_register"
-		readSec = "uprobe/gotls_read_register"
-		readFn = "gotls_read_register"
+		/*
+			readSec = "uprobe/gotls_read_register"
+			readFn = "gotls_read_register"
+		*/
 	} else {
 		sec = "uprobe/gotls_write_stack"
 		fn = "gotls_write_stack"
-		readSec = "uprobe/gotls_read_stack"
-		readFn = "gotls_read_stack"
+		/*
+			readSec = "uprobe/gotls_read_stack"
+			readFn = "gotls_read_stack"
+		*/
 	}
 	g.logger.Printf("%s\teBPF Function Name:%s, isRegisterABI:%t\n", g.Name(), fn, g.isRegisterABI)
 	g.bpfManager = &manager.Manager{
