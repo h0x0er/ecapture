@@ -53,6 +53,6 @@
 #define BIO_ST_NUM 0x30
 
 #include "openssl.h"
-#include "openssl_masterkey.h"
+// #include "openssl_masterkey.h"
 
 #endif

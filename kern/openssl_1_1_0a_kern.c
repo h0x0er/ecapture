@@ -45,6 +45,6 @@
 #define SSL_ST_EXPORTER_MASTER_SECRET 0
 
 #include "openssl.h"
-#include "openssl_masterkey.h"
+// #include "openssl_masterkey.h"
 
 #endif
