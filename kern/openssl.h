@@ -67,7 +67,7 @@ struct {
     __uint(max_entries, 1024);
 } tls_events SEC(".maps");
 
-
+/*
 struct {
     __uint(type, BPF_MAP_TYPE_PERF_EVENT_ARRAY);
     __uint(key_size, sizeof(u32));
@@ -84,6 +84,7 @@ struct {
     __type(value, struct active_ssl_buf);
     __uint(max_entries, 1024);
 } active_ssl_read_args_map SEC(".maps");
+*/
 
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
@@ -280,6 +281,7 @@ int probe_ret_SSL_write(struct pt_regs* ctx) {
     return 0;
 }
 
+/*
 // Function signature being probed:
 // int SSL_read(SSL *s, void *buf, int num)
 SEC("uprobe/SSL_read")
@@ -457,3 +459,5 @@ int probe_SSL_set_fd(struct pt_regs* ctx) {
     debug_bpf_printk("SSL_set_fd hook!!, ssl_addr:%d, fd:%d\n", ssl_addr, fd);
     return 0;
 }
+
+*/

@@ -188,16 +188,18 @@ func (m *MOpenSSLProbe) initDecodeFunText() error {
 	sslEvent := &event.SSLDataEvent{}
 	m.eventFuncMaps[SSLDumpEventsMap] = sslEvent
 
-	ConnEventsMap, found, err := m.bpfManager.GetMap("connect_events")
-	if err != nil {
-		return err
-	}
-	if !found {
-		return errors.New("cant found map:connect_events")
-	}
-	m.eventMaps = append(m.eventMaps, ConnEventsMap)
-	connEvent := &event.ConnDataEvent{}
-	m.eventFuncMaps[ConnEventsMap] = connEvent
+	/*
+		ConnEventsMap, found, err := m.bpfManager.GetMap("connect_events")
+		if err != nil {
+			return err
+		}
+		if !found {
+			return errors.New("cant found map:connect_events")
+		}
+		m.eventMaps = append(m.eventMaps, ConnEventsMap)
+		connEvent := &event.ConnDataEvent{}
+		m.eventFuncMaps[ConnEventsMap] = connEvent
+	*/
 	/*
 		MasterkeyEventsMap, found, err := m.bpfManager.GetMap("mastersecret_events")
 		if err != nil {
