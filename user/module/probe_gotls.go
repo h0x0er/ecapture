@@ -243,43 +243,43 @@ func (g *GoTLSProbe) Close() error {
 }
 
 func (g *GoTLSProbe) saveMasterSecret(secretEvent *event.MasterSecretGotlsEvent) {
-	/*
-		   var label, clientRandom, secret string
-		   label = string(secretEvent.Label[0:secretEvent.LabelLen])
-		   clientRandom = string(secretEvent.ClientRandom[0:secretEvent.ClientRandomLen])
-		   secret = string(secretEvent.MasterSecret[0:secretEvent.MasterSecretLen])
 
-		   var k = fmt.Sprintf("%s-%02x", label, clientRandom)
+	var label, clientRandom, secret string
+	label = string(secretEvent.Label[0:secretEvent.LabelLen])
+	clientRandom = string(secretEvent.ClientRandom[0:secretEvent.ClientRandomLen])
+	secret = string(secretEvent.MasterSecret[0:secretEvent.MasterSecretLen])
 
-		   _, f := g.masterSecrets[k]
+	var k = fmt.Sprintf("%s-%02x", label, clientRandom)
 
-		   	if f {
-		   		// 已存在该随机数的masterSecret，不需要重复写入
-		   		return
-		   	}
+	_, f := g.masterSecrets[k]
 
-		// TODO 保存多个lable 整组里？？？
-		// save to file
-		var b string
-		var e error
-		b = fmt.Sprintf("%s %02x %02x\n", label, clientRandom, secret)
-		switch g.eBPFProgramType {
-		case TlsCaptureModelTypeKeylog:
-			var l int
-			l, e = g.keylogger.WriteString(b)
-			if e != nil {
-				g.logger.Fatalf("%s: save masterSecrets to file error:%s", secretEvent.String(), e.Error())
-				return
-			}
-			g.logger.Printf("%s: save CLIENT_RANDOM %02x to file success, %d bytes", label, clientRandom, l)
-		case TlsCaptureModelTypePcap:
-			e = g.savePcapngSslKeyLog([]byte(b))
-			if e != nil {
-				g.logger.Fatalf("%s: save masterSecrets to pcapng error:%s", secretEvent.String(), e.Error())
-				return
-			}
+	if f {
+		// 已存在该随机数的masterSecret，不需要重复写入
+		return
+	}
+
+	// TODO 保存多个lable 整组里？？？
+	// save to file
+	var b string
+	var e error
+	b = fmt.Sprintf("%s %02x %02x\n", label, clientRandom, secret)
+	switch g.eBPFProgramType {
+	case TlsCaptureModelTypeKeylog:
+		var l int
+		l, e = g.keylogger.WriteString(b)
+		if e != nil {
+			g.logger.Fatalf("%s: save masterSecrets to file error:%s", secretEvent.String(), e.Error())
+			return
 		}
-	*/
+		g.logger.Printf("%s: save CLIENT_RANDOM %02x to file success, %d bytes", label, clientRandom, l)
+	case TlsCaptureModelTypePcap:
+		e = g.savePcapngSslKeyLog([]byte(b))
+		if e != nil {
+			g.logger.Fatalf("%s: save masterSecrets to pcapng error:%s", secretEvent.String(), e.Error())
+			return
+		}
+	}
+
 }
 
 func (g *GoTLSProbe) Dispatcher(eventStruct event.IEventStruct) {
