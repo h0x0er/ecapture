@@ -4,12 +4,13 @@ import (
 	"ecapture/user/config"
 	"ecapture/user/event"
 	"errors"
-	"github.com/cilium/ebpf"
-	manager "github.com/gojue/ebpfmanager"
-	"golang.org/x/sys/unix"
 	"math"
 	"os"
 	"strings"
+
+	"github.com/cilium/ebpf"
+	manager "github.com/gojue/ebpfmanager"
+	"golang.org/x/sys/unix"
 )
 
 func (m *MOpenSSLProbe) setupManagersText() error {
@@ -63,19 +64,20 @@ func (m *MOpenSSLProbe) setupManagersText() error {
 				AttachToFuncName: "SSL_write",
 				BinaryPath:       binaryPath,
 			},
-			{
-				Section:          "uprobe/SSL_read",
-				EbpfFuncName:     "probe_entry_SSL_read",
-				AttachToFuncName: "SSL_read",
-				BinaryPath:       binaryPath,
-			},
-			{
-				Section:          "uretprobe/SSL_read",
-				EbpfFuncName:     "probe_ret_SSL_read",
-				AttachToFuncName: "SSL_read",
-				BinaryPath:       binaryPath,
-			},
-
+			/*
+				{
+					Section:          "uprobe/SSL_read",
+					EbpfFuncName:     "probe_entry_SSL_read",
+					AttachToFuncName: "SSL_read",
+					BinaryPath:       binaryPath,
+				},
+				{
+					Section:          "uretprobe/SSL_read",
+					EbpfFuncName:     "probe_ret_SSL_read",
+					AttachToFuncName: "SSL_read",
+					BinaryPath:       binaryPath,
+				},
+			*/
 			// --------------------------------------------------
 			//{
 			//	Section:          "uprobe/connect",
@@ -96,36 +98,38 @@ func (m *MOpenSSLProbe) setupManagersText() error {
 			},*/
 
 			// ------------------- SSL_set_fd hook-------------------------------------
-			{
-				Section:          "uprobe/SSL_set_fd",
-				EbpfFuncName:     "probe_SSL_set_fd",
-				AttachToFuncName: "SSL_set_fd",
-				BinaryPath:       binaryPath,
-				UID:              "uprobe_ssl_set_fd",
-			},
-			{
-				Section:          "uprobe/SSL_set_rfd",
-				EbpfFuncName:     "probe_SSL_set_fd",
-				AttachToFuncName: "SSL_set_rfd",
-				BinaryPath:       binaryPath,
-				UID:              "uprobe_ssl_set_rfd",
-			},
-			{
-				Section:          "uprobe/SSL_set_wfd",
-				EbpfFuncName:     "probe_SSL_set_fd",
-				AttachToFuncName: "SSL_set_wfd",
-				BinaryPath:       binaryPath,
-				UID:              "uprobe_ssl_set_wfd",
-			},
+			/*
+				{
+					Section:          "uprobe/SSL_set_fd",
+					EbpfFuncName:     "probe_SSL_set_fd",
+					AttachToFuncName: "SSL_set_fd",
+					BinaryPath:       binaryPath,
+					UID:              "uprobe_ssl_set_fd",
+				},
+				{
+					Section:          "uprobe/SSL_set_rfd",
+					EbpfFuncName:     "probe_SSL_set_fd",
+					AttachToFuncName: "SSL_set_rfd",
+					BinaryPath:       binaryPath,
+					UID:              "uprobe_ssl_set_rfd",
+				},
+				{
+					Section:          "uprobe/SSL_set_wfd",
+					EbpfFuncName:     "probe_SSL_set_fd",
+					AttachToFuncName: "SSL_set_wfd",
+					BinaryPath:       binaryPath,
+					UID:              "uprobe_ssl_set_wfd",
+				},
+			*/
 		},
 
 		Maps: []*manager.Map{
 			{
 				Name: "tls_events",
 			},
-			{
-				Name: "connect_events",
-			},
+			// {
+			// 	Name: "connect_events",
+			// },
 			//{
 			//	Name: "mastersecret_events",
 			//},
