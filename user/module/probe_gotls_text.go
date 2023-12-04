@@ -15,14 +15,13 @@
 package module
 
 import (
-	"ecapture/user/config"
 	"ecapture/user/event"
 	"errors"
-	"fmt"
+	"math"
+
 	"github.com/cilium/ebpf"
 	manager "github.com/gojue/ebpfmanager"
 	"golang.org/x/sys/unix"
-	"math"
 )
 
 func (g *GoTLSProbe) setupManagersText() error {
@@ -59,20 +58,23 @@ func (g *GoTLSProbe) setupManagersText() error {
 		},
 	}
 
-	readOffsets := g.conf.(*config.GoTLSConfig).ReadTlsAddrs
-	//g.bpfManager.Probes = []*manager.Probe{}
-	for _, v := range readOffsets {
-		var uid = fmt.Sprintf("%s_%d", readFn, v)
-		g.logger.Printf("%s\tadd uretprobe function :%s, offset:0x%X\n", g.Name(), config.GoTlsReadFunc, v)
-		g.bpfManager.Probes = append(g.bpfManager.Probes, &manager.Probe{
-			Section:          readSec,
-			EbpfFuncName:     readFn,
-			AttachToFuncName: config.GoTlsReadFunc,
-			BinaryPath:       g.path,
-			UprobeOffset:     uint64(v),
-			UID:              uid,
-		})
-	}
+	/*
+		readOffsets := g.conf.(*config.GoTLSConfig).ReadTlsAddrs
+		//g.bpfManager.Probes = []*manager.Probe{}
+
+		for _, v := range readOffsets {
+			var uid = fmt.Sprintf("%s_%d", readFn, v)
+			g.logger.Printf("%s\tadd uretprobe function :%s, offset:0x%X\n", g.Name(), config.GoTlsReadFunc, v)
+			g.bpfManager.Probes = append(g.bpfManager.Probes, &manager.Probe{
+				Section:          readSec,
+				EbpfFuncName:     readFn,
+				AttachToFuncName: config.GoTlsReadFunc,
+				BinaryPath:       g.path,
+				UprobeOffset:     uint64(v),
+				UID:              uid,
+			})
+		}
+	*/
 	g.bpfManagerOptions = manager.Options{
 		DefaultKProbeMaxActive: 512,
 

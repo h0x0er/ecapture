@@ -218,7 +218,7 @@ func (m *MOpenSSLProbe) start() error {
 	}
 	bootstrapTime := time.Since(bootstrapStartTime)
 
-	m.logger.Printf("bpfManager.InitWithOptions() Time: %d seconds; bpfManager.Start() Time: %d seconds", initTime.Seconds(), bootstrapTime.Seconds())
+	m.logger.Printf("bpfManager.InitWithOptions() Time: %f seconds; bpfManager.Start() Time: %f seconds", initTime.Seconds(), bootstrapTime.Seconds())
 
 	// 加载map信息，map对应events decode表。
 	switch m.eBPFProgramType {
