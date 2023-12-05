@@ -13,7 +13,7 @@
 // limitations under the License.
 
 #include "ecapture.h"
-#include "tc.h"
+// #include "tc.h"
 
 
 /***********************************************************
