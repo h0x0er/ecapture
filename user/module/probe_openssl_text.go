@@ -4,7 +4,6 @@ import (
 	"ecapture/user/config"
 	"ecapture/user/event"
 	"errors"
-	"math"
 	"os"
 	"strings"
 
@@ -162,8 +161,8 @@ func (m *MOpenSSLProbe) setupManagersText() error {
 		},
 
 		RLimit: &unix.Rlimit{
-			Cur: math.MaxUint64,
-			Max: math.MaxUint64,
+			Cur: 104857600,
+			Max: 104857600,
 		},
 	}
 
