@@ -15,7 +15,6 @@
 package module
 
 import (
-	"bytes"
 	"debug/elf"
 	"ecapture/user/config"
 	"fmt"
@@ -143,26 +142,7 @@ func (m *MOpenSSLProbe) detectOpenssl(soPath string) error {
 		return err
 	}
 
-	// 按照\x00 拆分  buf
-	var slice [][]byte
-	if slice = bytes.Split(buf, []byte("\x00")); slice == nil {
-		return nil
-	}
-
-	dumpStrings := make(map[uint64][]byte, len(slice))
-	length := uint64(len(slice))
-
-	var offset uint64
-
-	for i := uint64(0); i < length; i++ {
-		if len(slice[i]) == 0 {
-			continue
-		}
-
-		dumpStrings[offset] = slice[i]
-
-		offset += (uint64(len(slice[i])) + 1)
-	}
+	versionKey := ""
 
 	// e.g : OpenSSL 1.1.1j  16 Feb 2021
 	rex, err := regexp.Compile(`(OpenSSL\s\d\.\d\.[0-9a-z]+)`)
@@ -170,16 +150,9 @@ func (m *MOpenSSLProbe) detectOpenssl(soPath string) error {
 		return nil
 	}
 
-	versionKey := ""
-
-	for _, v := range dumpStrings {
-		if strings.Contains(string(v), "OpenSSL") {
-			match := rex.FindStringSubmatch(string(v))
-			if match != nil {
-				versionKey = match[0]
-				break
-			}
-		}
+	match := rex.Find(buf)
+	if match != nil {
+		versionKey = string(buf)
 	}
 
 	var bpfFile string
