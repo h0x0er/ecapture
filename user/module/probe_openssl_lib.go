@@ -120,29 +120,19 @@ func (m *MOpenSSLProbe) detectOpenssl(soPath string) error {
 		return nil
 	}
 
-	sectionSize := int64(s.Offset)
+	sectionOffset := int64(s.Offset)
 
 	_, err = f.Seek(0, 0)
 	if err != nil {
 		return err
 	}
 
-	ret, err := f.Seek(sectionSize, 0)
-	if ret != sectionSize || err != nil {
+	ret, err := f.Seek(sectionOffset, 0)
+	if ret != sectionOffset || err != nil {
 		return err
 	}
 
-	m.logger.Printf("%s .rodata size: %d bytes\t", m.Name(), s.Size)
-
-	buf := make([]byte, s.Size)
-	if buf == nil {
-		return nil
-	}
-
-	_, err = f.Read(buf)
-	if err != nil {
-		return err
-	}
+	m.logger.Printf("%s\t.rodata size: %d bytes\t", m.Name(), s.Size)
 
 	versionKey := ""
 
@@ -152,9 +142,34 @@ func (m *MOpenSSLProbe) detectOpenssl(soPath string) error {
 		return nil
 	}
 
-	match := rex.Find(buf)
-	if match != nil {
-		versionKey = string(match)
+	buf := make([]byte, 1024*1024) // 10Mb
+	totalReadCount := 0
+	for totalReadCount < int(s.Size) {
+		readCount, err := f.Read(buf)
+
+		if err != nil {
+			m.logger.Printf("%s\t[f.Read] Error:%v\t", m.Name(), err)
+			break
+		}
+
+		if readCount == 0 {
+			break
+		}
+		if totalReadCount > int(s.Size) {
+			break
+		}
+
+		match := rex.Find(buf)
+		if match != nil {
+			versionKey = string(match)
+		}
+
+		totalReadCount += readCount
+
+		f.Seek(sectionOffset+int64(totalReadCount), 0)
+
+		clear(buf)
+
 	}
 
 	var bpfFile string
