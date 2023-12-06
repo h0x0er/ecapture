@@ -132,6 +132,8 @@ func (m *MOpenSSLProbe) detectOpenssl(soPath string) error {
 		return err
 	}
 
+	m.logger.Printf("%s .rodata size: %d bytes\t", m.Name(), s.Size)
+
 	buf := make([]byte, s.Size)
 	if buf == nil {
 		return nil
@@ -152,7 +154,7 @@ func (m *MOpenSSLProbe) detectOpenssl(soPath string) error {
 
 	match := rex.Find(buf)
 	if match != nil {
-		versionKey = string(buf)
+		versionKey = string(match)
 	}
 
 	var bpfFile string
