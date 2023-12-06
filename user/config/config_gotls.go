@@ -76,7 +76,7 @@ func (gc *GoTLSConfig) Check() error {
 	if err != nil {
 		return err
 	}
-
+	defer goElf.Close()
 	var goElfArch string
 	switch goElf.FileHeader.Machine.String() {
 	case elf.EM_AARCH64.String():

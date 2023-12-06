@@ -101,10 +101,12 @@ func (m *MOpenSSLProbe) detectOpenssl(soPath string) error {
 	if err != nil {
 		return fmt.Errorf("can not open %s, with error:%v", soPath, err)
 	}
+	defer f.Close()
 	r, e := elf.NewFile(f)
 	if e != nil {
 		return fmt.Errorf("parse the ELF file  %s failed, with error:%v", soPath, err)
 	}
+	defer r.Close()
 
 	switch r.FileHeader.Machine {
 	case elf.EM_X86_64:
