@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"runtime"
 	"strings"
 )
 
@@ -156,7 +157,6 @@ func (m *MOpenSSLProbe) detectOpenssl(soPath string) error {
 		match := rex.Find(buf)
 		if match != nil {
 			versionKey = string(match)
-			buf = nil
 			break
 		}
 
@@ -167,7 +167,12 @@ func (m *MOpenSSLProbe) detectOpenssl(soPath string) error {
 		clear(buf)
 
 	}
+
 	f.Close()
+	r.Close()
+	buf = nil
+
+	runtime.GC()
 
 	var bpfFile string
 	var found bool
