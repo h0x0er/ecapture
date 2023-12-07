@@ -100,13 +100,10 @@ func (m *MOpenSSLProbe) detectOpenssl(soPath string) error {
 	if err != nil {
 		return fmt.Errorf("can not open %s, with error:%v", soPath, err)
 	}
-	defer f.Close()
 	r, e := elf.NewFile(f)
 	if e != nil {
 		return fmt.Errorf("parse the ELF file  %s failed, with error:%v", soPath, err)
 	}
-	defer r.Close()
-
 	switch r.FileHeader.Machine {
 	case elf.EM_X86_64:
 	case elf.EM_AARCH64:
@@ -142,7 +139,7 @@ func (m *MOpenSSLProbe) detectOpenssl(soPath string) error {
 		return nil
 	}
 
-	buf := make([]byte, 1024*1024) // 10Mb
+	buf := make([]byte, 1024*1024) // 1Mb
 	totalReadCount := 0
 	for totalReadCount < int(s.Size) {
 		readCount, err := f.Read(buf)
@@ -155,13 +152,12 @@ func (m *MOpenSSLProbe) detectOpenssl(soPath string) error {
 		if readCount == 0 {
 			break
 		}
-		if totalReadCount > int(s.Size) {
-			break
-		}
 
 		match := rex.Find(buf)
 		if match != nil {
 			versionKey = string(match)
+			buf = nil
+			break
 		}
 
 		totalReadCount += readCount
@@ -171,6 +167,7 @@ func (m *MOpenSSLProbe) detectOpenssl(soPath string) error {
 		clear(buf)
 
 	}
+	f.Close()
 
 	var bpfFile string
 	var found bool
