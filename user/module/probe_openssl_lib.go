@@ -119,6 +119,9 @@ func (m *MOpenSSLProbe) detectOpenssl(soPath string) error {
 	}
 
 	sectionOffset := int64(s.Offset)
+	sectionSize := s.Size
+
+	r.Close()
 
 	_, err = f.Seek(0, 0)
 	if err != nil {
@@ -130,7 +133,7 @@ func (m *MOpenSSLProbe) detectOpenssl(soPath string) error {
 		return err
 	}
 
-	m.logger.Printf("%s\t.rodata size: %d bytes\t", m.Name(), s.Size)
+	m.logger.Printf("%s\t.rodata size: %d KB\t", m.Name(), sectionSize/1024)
 
 	versionKey := ""
 
@@ -142,7 +145,7 @@ func (m *MOpenSSLProbe) detectOpenssl(soPath string) error {
 
 	buf := make([]byte, 1024*1024) // 1Mb
 	totalReadCount := 0
-	for totalReadCount < int(s.Size) {
+	for totalReadCount < int(sectionSize) {
 		readCount, err := f.Read(buf)
 
 		if err != nil {
@@ -169,7 +172,6 @@ func (m *MOpenSSLProbe) detectOpenssl(soPath string) error {
 	}
 
 	f.Close()
-	r.Close()
 	buf = nil
 
 	runtime.GC()
