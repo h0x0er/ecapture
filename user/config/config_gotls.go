@@ -46,6 +46,7 @@ type GoTLSConfig struct {
 	Port         uint16    `json:"port"`       // capture port
 	goElfArch    string    //
 	goElf        *elf.File //
+	osFile       *os.File
 	ReadTlsAddrs []int
 }
 
@@ -71,8 +72,14 @@ func (gc *GoTLSConfig) Check() error {
 		return err
 	}
 
+	f, err := os.OpenFile(gc.Path, os.O_RDONLY, os.ModePerm)
+	if err != nil {
+		return fmt.Errorf("can not open %s, with error:%v", gc.Path, err)
+	}
+	gc.osFile = f
+
 	var goElf *elf.File
-	goElf, err = elf.Open(gc.Path)
+	goElf, err = elf.NewFile(gc.osFile)
 	if err != nil {
 		return err
 	}
@@ -139,20 +146,26 @@ func (gc *GoTLSConfig) findRetOffsets(symbolName string) ([]int, error) {
 		return nil, ErrorSymbolNotFound
 	}
 
-	section := gc.goElf.Sections[symbol.Section]
-
-	var elfText []byte
-	elfText, err = section.Data()
+	_, err = gc.osFile.Seek(0, 0)
 	if err != nil {
 		return nil, err
 	}
 
-	start := symbol.Value - section.Addr
-	end := start + symbol.Size
-
 	var offsets []int
-	var instHex []byte
-	instHex = elfText[start:end]
+	instHex := make([]byte, symbol.Size)
+
+	_, err = gc.osFile.Seek(int64(symbol.Value), 0)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = gc.osFile.Read(instHex)
+	if err != nil {
+		return nil, err
+	}
+
+	gc.osFile.Close()
+
 	offsets, err = gc.decodeInstruction(instHex)
 	if len(offsets) == 0 {
 		return offsets, ErrorNoRetFound
