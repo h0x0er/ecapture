@@ -99,7 +99,7 @@ func (gc *GoTLSConfig) Check() error {
 	}
 	gc.goElfArch = goElfArch
 	gc.goElf = goElf
-	gc.ReadTlsAddrs, err = gc.findRetOffsets(GoTlsReadFunc)
+	// gc.ReadTlsAddrs, err = gc.findRetOffsets(GoTlsReadFunc)
 	return err
 }
 
