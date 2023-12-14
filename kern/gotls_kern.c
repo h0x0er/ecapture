@@ -15,7 +15,7 @@
 /* Copyright © 2022 Hengqi Chen */
 #include "ecapture.h"
 #include "go_argument.h"
-#include "tc.h"
+// #include "tc.h"
 
 #define GOTLS_RANDOM_SIZE 32
 
@@ -38,17 +38,18 @@ struct go_tls_event {
     char data[MAX_DATA_SIZE_OPENSSL];
 };
 
-struct mastersecret_gotls_t {
-    u8 label[MASTER_SECRET_KEY_LEN];
-    u8 labellen;
-    u8 client_random[EVP_MAX_MD_SIZE];
-    u8 client_random_len;
-    u8 secret_[EVP_MAX_MD_SIZE];
-    u8 secret_len;
-};
+// struct mastersecret_gotls_t {
+//     u8 label[MASTER_SECRET_KEY_LEN];
+//     u8 labellen;
+//     u8 client_random[EVP_MAX_MD_SIZE];
+//     u8 client_random_len;
+//     u8 secret_[EVP_MAX_MD_SIZE];
+//     u8 secret_len;
+// };
 
 /////////////////////////BPF MAPS ////////////////////////////////
 
+/*
 // bpf map
 struct {
     __uint(type, BPF_MAP_TYPE_PERF_EVENT_ARRAY);
@@ -56,7 +57,7 @@ struct {
     __uint(value_size, sizeof(u32));
     __uint(max_entries, 1024);
 } mastersecret_go_events SEC(".maps");
-
+*/
 struct {
     __uint(type, BPF_MAP_TYPE_PERF_EVENT_ARRAY);
     __uint(key_size, sizeof(u32));
@@ -116,9 +117,10 @@ static __always_inline int gotls_write(struct pt_regs *ctx,
         return 0;
     }
 
-    event->data_len = len;
+    event->data_len = (len < MAX_DATA_SIZE_OPENSSL ? (len & (MAX_DATA_SIZE_OPENSSL - 1))
+                                     : MAX_DATA_SIZE_OPENSSL);
     int ret =
-        bpf_probe_read_user(&event->data, sizeof(event->data), (void *)str);
+        bpf_probe_read_user(&event->data, event->data_len, (void *)str);
     if (ret < 0) {
         debug_bpf_printk(
             "gotls_write bpf_probe_read_user_str failed, ret:%d, str:%d\n", ret,
@@ -140,6 +142,7 @@ int gotls_write_register(struct pt_regs *ctx) { return gotls_write(ctx, true); }
 SEC("uprobe/gotls_write_stack")
 int gotls_write_stack(struct pt_regs *ctx) { return gotls_write(ctx, false); }
 
+/*
 // func (c *Conn) Read(b []byte) (int, error)
 static __always_inline int gotls_read(struct pt_regs *ctx,
                                       bool is_register_abi) {
@@ -183,7 +186,9 @@ static __always_inline int gotls_read(struct pt_regs *ctx,
                           sizeof(struct go_tls_event));
     return 0;
 }
+*/
 
+/*
 // capture golang tls plaintext, supported golang stack-based ABI (go version
 // < 1.17) func (c *Conn) Read(b []byte) (int, error)
 
@@ -193,94 +198,99 @@ int gotls_read_register(struct pt_regs *ctx) { return gotls_read(ctx, true); }
 SEC("uprobe/gotls_read_stack")
 int gotls_read_stack(struct pt_regs *ctx) { return gotls_read(ctx, false); }
 
+
+*/
+
 /*
  * crypto/tls/common.go
  * func (c *Config) writeKeyLog(label string, clientRandom, secret []byte) error
  */
-static __always_inline int gotls_mastersecret(struct pt_regs *ctx,
-                                              bool is_register_abi) {
-    //    const char *label, *clientrandom, *secret;
-    void *lab_ptr, *cr_ptr, *secret_ptr;
-    void *lab_len_ptr, *cr_len_ptr, *secret_len_ptr;
-    s32 lab_len, cr_len, secret_len;
+// static __always_inline int gotls_mastersecret(struct pt_regs *ctx,
+//                                               bool is_register_abi) {
+//     //    const char *label, *clientrandom, *secret;
+//     void *lab_ptr, *cr_ptr, *secret_ptr;
+//     void *lab_len_ptr, *cr_len_ptr, *secret_len_ptr;
+//     s32 lab_len, cr_len, secret_len;
 
-    /*
-     *
-     * in golang struct, slice header like this
-     * type slice struct {
-     * 	array unsafe.Pointer
-     * 	len   int
-     * 	cap   int
-     * }
-     * so, arument index are in the order one by one
-     *
-     */
-    lab_ptr = (void *)go_get_argument(ctx, is_register_abi, 2);
-    lab_len_ptr = (void *)go_get_argument(ctx, is_register_abi, 3);
-    cr_ptr = (void *)go_get_argument(ctx, is_register_abi, 4);
-    cr_len_ptr = (void *)go_get_argument(ctx, is_register_abi, 5);
-    secret_ptr = (void *)go_get_argument(ctx, is_register_abi, 7);
-    secret_len_ptr = (void *)go_get_argument(ctx, is_register_abi, 8);
+//     /*
+//      *
+//      * in golang struct, slice header like this
+//      * type slice struct {
+//      * 	array unsafe.Pointer
+//      * 	len   int
+//      * 	cap   int
+//      * }
+//      * so, arument index are in the order one by one
+//      *
+//      */
+//     lab_ptr = (void *)go_get_argument(ctx, is_register_abi, 2);
+//     lab_len_ptr = (void *)go_get_argument(ctx, is_register_abi, 3);
+//     cr_ptr = (void *)go_get_argument(ctx, is_register_abi, 4);
+//     cr_len_ptr = (void *)go_get_argument(ctx, is_register_abi, 5);
+//     secret_ptr = (void *)go_get_argument(ctx, is_register_abi, 7);
+//     secret_len_ptr = (void *)go_get_argument(ctx, is_register_abi, 8);
 
-    bpf_probe_read_kernel(&lab_len, sizeof(lab_len), (void *)&lab_len_ptr);
-    bpf_probe_read_kernel(&cr_len, sizeof(lab_len), (void *)&cr_len_ptr);
-    bpf_probe_read_kernel(&secret_len, sizeof(lab_len),
-                          (void *)&secret_len_ptr);
+//     bpf_probe_read_kernel(&lab_len, sizeof(lab_len), (void *)&lab_len_ptr);
+//     bpf_probe_read_kernel(&cr_len, sizeof(lab_len), (void *)&cr_len_ptr);
+//     bpf_probe_read_kernel(&secret_len, sizeof(lab_len),
+//                           (void *)&secret_len_ptr);
 
-    if (lab_len <= 0 || cr_len <= 0 || secret_len <= 0) {
-        return 0;
-    }
+//     if (lab_len <= 0 || cr_len <= 0 || secret_len <= 0) {
+//         return 0;
+//     }
 
-    debug_bpf_printk(
-        "gotls_mastersecret read params length success, lab_len:%d, cr_len:%d, "
-        "secret_len:%d\n",
-        lab_len, cr_len, secret_len);
+//     debug_bpf_printk(
+//         "gotls_mastersecret read params length success, lab_len:%d, cr_len:%d, "
+//         "secret_len:%d\n",
+//         lab_len, cr_len, secret_len);
 
-    struct mastersecret_gotls_t mastersecret_gotls = {};
-    mastersecret_gotls.labellen = lab_len;
-    mastersecret_gotls.client_random_len = cr_len;
-    mastersecret_gotls.secret_len = secret_len;
-    int ret = bpf_probe_read_user_str(&mastersecret_gotls.label,
-                                      sizeof(mastersecret_gotls.label),
-                                      (void *)lab_ptr);
-    if (ret < 0) {
-        debug_bpf_printk(
-            "gotls_mastersecret read mastersecret label failed, ret:%d, "
-            "lab_ptr:%p\n",
-            ret, lab_ptr);
-        return 0;
-    }
+//     struct mastersecret_gotls_t mastersecret_gotls = {};
+//     mastersecret_gotls.labellen = lab_len;
+//     mastersecret_gotls.client_random_len = cr_len;
+//     mastersecret_gotls.secret_len = secret_len;
+//     int ret = bpf_probe_read_user_str(&mastersecret_gotls.label,
+//                                       sizeof(mastersecret_gotls.label),
+//                                       (void *)lab_ptr);
+//     if (ret < 0) {
+//         debug_bpf_printk(
+//             "gotls_mastersecret read mastersecret label failed, ret:%d, "
 
-    debug_bpf_printk("gotls_mastersecret read mastersecret label%s\n",
-                     mastersecret_gotls.label);
-    ret = bpf_probe_read_user_str(&mastersecret_gotls.client_random,
-                                  sizeof(mastersecret_gotls.client_random),
-                                  (void *)cr_ptr);
-    if (ret < 0) {
-        debug_bpf_printk(
-            "gotls_mastersecret read mastersecret client_random failed, "
-            "ret:%d, cr_ptr:%p\n",
-            ret, cr_ptr);
-        return 0;
-    }
+//             "lab_ptr:%p\n",
+//             ret, lab_ptr);
+//         return 0;
+//     }
 
-    ret = bpf_probe_read_user_str(&mastersecret_gotls.secret_,
-                                  sizeof(mastersecret_gotls.secret_),
-                                  (void *)secret_ptr);
-    if (ret < 0) {
-        debug_bpf_printk(
-            "gotls_mastersecret read mastersecret secret_ failed, ret:%d, "
-            "secret_ptr:%p\n",
-            ret, secret_ptr);
-        return 0;
-    }
+//     debug_bpf_printk("gotls_mastersecret read mastersecret label%s\n",
+//                      mastersecret_gotls.label);
+//     ret = bpf_probe_read_user_str(&mastersecret_gotls.client_random,
+//                                   sizeof(mastersecret_gotls.client_random),
+//                                   (void *)cr_ptr);
+//     if (ret < 0) {
+//         debug_bpf_printk(
+//             "gotls_mastersecret read mastersecret client_random failed, "
+//             "ret:%d, cr_ptr:%p\n",
+//             ret, cr_ptr);
+//         return 0;
+//     }
 
-    bpf_perf_event_output(ctx, &mastersecret_go_events, BPF_F_CURRENT_CPU,
-                          &mastersecret_gotls,
-                          sizeof(struct mastersecret_gotls_t));
-    return 0;
-}
+//     ret = bpf_probe_read_user_str(&mastersecret_gotls.secret_,
+//                                   sizeof(mastersecret_gotls.secret_),
+//                                   (void *)secret_ptr);
+//     if (ret < 0) {
+//         debug_bpf_printk(
+//             "gotls_mastersecret read mastersecret secret_ failed, ret:%d, "
+//             "secret_ptr:%p\n",
+//             ret, secret_ptr);
+//         return 0;
+//     }
 
+//     bpf_perf_event_output(ctx, &mastersecret_go_events, BPF_F_CURRENT_CPU,
+//                           &mastersecret_gotls,
+//                           sizeof(struct mastersecret_gotls_t));
+//     return 0;
+// }
+
+/*
 SEC("uprobe/gotls_mastersecret_register")
 int gotls_mastersecret_register(struct pt_regs *ctx) {
     return gotls_mastersecret(ctx, true);
@@ -290,3 +300,4 @@ SEC("uprobe/gotls_mastersecret_stack")
 int gotls_mastersecret_stack(struct pt_regs *ctx) {
     return gotls_mastersecret(ctx, false);
 }
+*/
