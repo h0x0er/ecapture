@@ -4,7 +4,7 @@
 
 .PHONY: all
 all: help
-release: snapshot snapshot_android publish
+release: snapshot  publish
 
 #
 # make
