@@ -22,12 +22,13 @@ import (
 	"ecapture/user/event"
 	"errors"
 	"fmt"
-	"github.com/cilium/ebpf"
-	manager "github.com/gojue/ebpfmanager"
-	"golang.org/x/sys/unix"
 	"log"
 	"math"
 	"os"
+
+	"github.com/cilium/ebpf"
+	manager "github.com/gojue/ebpfmanager"
+	"golang.org/x/sys/unix"
 )
 
 type MGnutlsProbe struct {
@@ -148,18 +149,20 @@ func (g *MGnutlsProbe) setupManagers() error {
 				AttachToFuncName: "gnutls_record_send",
 				BinaryPath:       binaryPath,
 			},
-			{
-				Section:          "uprobe/gnutls_record_recv",
-				EbpfFuncName:     "probe_entry_SSL_read",
-				AttachToFuncName: "gnutls_record_recv",
-				BinaryPath:       binaryPath,
-			},
-			{
-				Section:          "uretprobe/gnutls_record_recv",
-				EbpfFuncName:     "probe_ret_SSL_read",
-				AttachToFuncName: "gnutls_record_recv",
-				BinaryPath:       binaryPath,
-			},
+			/*
+				{
+					Section:          "uprobe/gnutls_record_recv",
+					EbpfFuncName:     "probe_entry_SSL_read",
+					AttachToFuncName: "gnutls_record_recv",
+					BinaryPath:       binaryPath,
+				},
+				{
+					Section:          "uretprobe/gnutls_record_recv",
+					EbpfFuncName:     "probe_ret_SSL_read",
+					AttachToFuncName: "gnutls_record_recv",
+					BinaryPath:       binaryPath,
+				},
+			*/
 		},
 
 		Maps: []*manager.Map{

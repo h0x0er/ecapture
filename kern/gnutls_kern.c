@@ -38,13 +38,14 @@ struct {
  ***********************************************************/
 
 // Key is thread ID (from bpf_get_current_pid_tgid).
+/*
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
     __type(key, u64);
     __type(value, const char*);
     __uint(max_entries, 1024);
 } active_ssl_read_args_map SEC(".maps");
-
+*/
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
     __type(key, u64);
@@ -176,54 +177,54 @@ int probe_ret_SSL_write(struct pt_regs* ctx) {
 // ssize_t gnutls_record_recv (gnutls_session session, void * data, size_t
 // sizeofdata)
 
-SEC("uprobe/gnutls_record_recv")
-int probe_entry_SSL_read(struct pt_regs* ctx) {
-    u64 current_pid_tgid = bpf_get_current_pid_tgid();
-    u32 pid = current_pid_tgid >> 32;
-    u64 current_uid_gid = bpf_get_current_uid_gid();
-    u32 uid = current_uid_gid;
-    debug_bpf_printk("gnutls uprobe/gnutls_record_recv pid :%d\n", pid);
+// SEC("uprobe/gnutls_record_recv")
+// int probe_entry_SSL_read(struct pt_regs* ctx) {
+//     u64 current_pid_tgid = bpf_get_current_pid_tgid();
+//     u32 pid = current_pid_tgid >> 32;
+//     u64 current_uid_gid = bpf_get_current_uid_gid();
+//     u32 uid = current_uid_gid;
+//     debug_bpf_printk("gnutls uprobe/gnutls_record_recv pid :%d\n", pid);
 
-#ifndef KERNEL_LESS_5_2
-    // if target_ppid is 0 then we target all pids
-    if (target_pid != 0 && target_pid != pid) {
-        return 0;
-    }
-    if (target_uid != 0 && target_uid != uid) {
-        return 0;
-    }
-#endif
+// #ifndef KERNEL_LESS_5_2
+//     // if target_ppid is 0 then we target all pids
+//     if (target_pid != 0 && target_pid != pid) {
+//         return 0;
+//     }
+//     if (target_uid != 0 && target_uid != uid) {
+//         return 0;
+//     }
+// #endif
 
-    const char* buf = (const char*)PT_REGS_PARM2(ctx);
-    bpf_map_update_elem(&active_ssl_read_args_map, &current_pid_tgid, &buf,
-                        BPF_ANY);
-    return 0;
-}
+//     const char* buf = (const char*)PT_REGS_PARM2(ctx);
+//     bpf_map_update_elem(&active_ssl_read_args_map, &current_pid_tgid, &buf,
+//                         BPF_ANY);
+//     return 0;
+// }
 
-SEC("uretprobe/gnutls_record_recv")
-int probe_ret_SSL_read(struct pt_regs* ctx) {
-    u64 current_pid_tgid = bpf_get_current_pid_tgid();
-    u32 pid = current_pid_tgid >> 32;
-    u64 current_uid_gid = bpf_get_current_uid_gid();
-    u32 uid = current_uid_gid;
-    debug_bpf_printk("gnutls uretprobe/gnutls_record_recv pid :%d\n", pid);
+// SEC("uretprobe/gnutls_record_recv")
+// int probe_ret_SSL_read(struct pt_regs* ctx) {
+//     u64 current_pid_tgid = bpf_get_current_pid_tgid();
+//     u32 pid = current_pid_tgid >> 32;
+//     u64 current_uid_gid = bpf_get_current_uid_gid();
+//     u32 uid = current_uid_gid;
+//     debug_bpf_printk("gnutls uretprobe/gnutls_record_recv pid :%d\n", pid);
 
-#ifndef KERNEL_LESS_5_2
-    // if target_ppid is 0 then we target all pids
-    if (target_pid != 0 && target_pid != pid) {
-        return 0;
-    }
-    if (target_uid != 0 && target_uid != uid) {
-        return 0;
-    }
-#endif
+// #ifndef KERNEL_LESS_5_2
+//     // if target_ppid is 0 then we target all pids
+//     if (target_pid != 0 && target_pid != pid) {
+//         return 0;
+//     }
+//     if (target_uid != 0 && target_uid != uid) {
+//         return 0;
+//     }
+// #endif
 
-    const char** buf =
-        bpf_map_lookup_elem(&active_ssl_read_args_map, &current_pid_tgid);
-    if (buf != NULL) {
-        process_SSL_data(ctx, current_pid_tgid, kSSLRead, *buf);
-    }
+//     const char** buf =
+//         bpf_map_lookup_elem(&active_ssl_read_args_map, &current_pid_tgid);
+//     if (buf != NULL) {
+//         process_SSL_data(ctx, current_pid_tgid, kSSLRead, *buf);
+//     }
 
-    bpf_map_delete_elem(&active_ssl_read_args_map, &current_pid_tgid);
-    return 0;
-}
+//     bpf_map_delete_elem(&active_ssl_read_args_map, &current_pid_tgid);
+//     return 0;
+// }
