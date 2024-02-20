@@ -29,6 +29,10 @@ jobs:
     - name: Build eCapture
       run: |
         make env
-        make -f builder/Makefile.release snapshot SNAPSHOT_VERSION="int"
+        make -f builder/Makefile.release snapshot SNAPSHOT_VERSION="int-pull"
 
-    - run: ls -lah ./bin
+    - run: | 
+    
+        archive_to_push="./bin/ecapture-int-linux-amd64.tar.gz"
+        mv ./bin/ecapture-int-pull-linux-x86_64.tar.gz $archive_to_push
+        ls -lah ./bin
