@@ -36,3 +36,6 @@ jobs:
         archive_to_push="./bin/ecapture-int-linux-amd64.tar.gz"
         mv ./bin/ecapture-int-pull-linux-x86_64.tar.gz $archive_to_push
         ls -lah ./bin
+        binary_to_push="./bin/ecapture"
+        ls -lah $binary_to_push
+
