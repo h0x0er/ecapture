@@ -18,16 +18,10 @@
 package cmd
 
 import (
-	"context"
-	"ecapture/pkg/util/kernel"
-	"ecapture/user/config"
-	"ecapture/user/module"
-	"log"
-	"os"
-	"os/signal"
-	"sync"
-	"syscall"
+	"strings"
 
+	"github.com/gojue/ecapture/user/config"
+	"github.com/gojue/ecapture/user/module"
 	"github.com/spf13/cobra"
 )
 
@@ -43,6 +37,8 @@ ecapture gnutls
 ecapture gnutls --hex --pid=3423
 ecapture gnutls -l save.log --pid=3423
 ecapture gnutls --gnutls=/lib/x86_64-linux-gnu/libgnutls.so
+ecapture gnutls -m keylog -k ecapture_gnutls_key.log --ssl_version=3.7.9
+ecapture gnutls -m pcap --pcapfile save.pcapng -i eth0 --gnutls=/lib/x86_64-linux-gnu/libgnutls.so tcp port 443
 `,
 	Run: gnuTlsCommandFunc,
 }
@@ -50,101 +46,18 @@ ecapture gnutls --gnutls=/lib/x86_64-linux-gnu/libgnutls.so
 func init() {
 	//opensslCmd.PersistentFlags().StringVar(&gc.Curlpath, "wget", "", "wget file path, default: /usr/bin/wget. (Deprecated)")
 	gnutlsCmd.PersistentFlags().StringVar(&gc.Gnutls, "gnutls", "", "libgnutls.so file path, will automatically find it from curl default.")
+	gnutlsCmd.PersistentFlags().StringVarP(&gc.Model, "model", "m", "text", "capture model, such as : text, pcap/pcapng, key/keylog")
+	gnutlsCmd.PersistentFlags().StringVarP(&gc.KeylogFile, "keylogfile", "k", "ecapture_gnutls_key.log", "The file stores SSL/TLS keys, and eCapture captures these keys during encrypted traffic communication and saves them to the file.")
+	gnutlsCmd.PersistentFlags().StringVarP(&gc.PcapFile, "pcapfile", "w", "save.pcapng", "write the raw packets to file as pcapng format.")
+	gnutlsCmd.PersistentFlags().StringVarP(&gc.Ifname, "ifname", "i", "", "(TC Classifier) Interface name on which the probe will be attached.")
+	gnutlsCmd.PersistentFlags().StringVar(&gc.SslVersion, "ssl_version", "", "GnuTLS version, e.g: --ssl_version=\"3.7.9\"")
 	rootCmd.AddCommand(gnutlsCmd)
 }
 
 // gnuTlsCommandFunc executes the "bash" command.
 func gnuTlsCommandFunc(command *cobra.Command, args []string) {
-	stopper := make(chan os.Signal, 1)
-	signal.Notify(stopper, os.Interrupt, syscall.SIGTERM)
-	ctx, cancelFun := context.WithCancel(context.TODO())
-
-	logger := log.New(os.Stdout, "tls_", log.LstdFlags)
-
-	// save global config
-	gConf, err := getGlobalConf(command)
-	if err != nil {
-		logger.Fatal(err)
+	if gc.PcapFilter == "" && len(args) != 0 {
+		gc.PcapFilter = strings.Join(args, " ")
 	}
-	logger.SetOutput(gConf.writer)
-
-	logger.Printf("ECAPTURE :: %s Version : %s", cliName, GitVersion)
-	logger.Printf("ECAPTURE :: Pid Info : %d", os.Getpid())
-	var version kernel.Version
-	version, err = kernel.HostVersion()
-	logger.Printf("ECAPTURE :: Kernel Info : %s", version.String())
-	modNames := []string{module.ModuleNameGnutls}
-
-	var runMods uint8
-	var runModules = make(map[string]module.IModule)
-	var wg sync.WaitGroup
-
-	for _, modName := range modNames {
-		mod := module.GetModuleByName(modName)
-		if mod == nil {
-			logger.Printf("ECAPTURE :: \tcant found module: %s", modName)
-			break
-		}
-
-		var conf config.IConfig
-		conf = gc
-		if conf == nil {
-			logger.Printf("ECAPTURE :: \tcant found module %s config info.", mod.Name())
-			break
-		}
-
-		conf.SetPid(gConf.Pid)
-		conf.SetUid(gConf.Uid)
-		conf.SetDebug(gConf.Debug)
-		conf.SetHex(gConf.IsHex)
-		conf.SetPerCpuMapSize(gConf.mapSizeKB)
-
-		err = conf.Check()
-
-		if err != nil {
-			logger.Printf("%s\tmodule initialization failed. [skip it]. error:%+v", mod.Name(), err)
-			continue
-		}
-
-		logger.Printf("%s\tmodule initialization", mod.Name())
-
-		//初始化
-		err = mod.Init(ctx, logger, conf)
-		if err != nil {
-			logger.Printf("%s\tmodule initialization failed, [skip it]. error:%+v", mod.Name(), err)
-			continue
-		}
-
-		err = mod.Run()
-		if err != nil {
-			logger.Printf("%s\tmodule run failed, [skip it]. error:%+v", mod.Name(), err)
-			continue
-		}
-		runModules[mod.Name()] = mod
-		logger.Printf("%s\tmodule started successfully.", mod.Name())
-		wg.Add(1)
-		runMods++
-	}
-
-	// needs runmods > 0
-	if runMods > 0 {
-		logger.Printf("ECAPTURE :: \tstart %d modules", runMods)
-		<-stopper
-	} else {
-		logger.Println("ECAPTURE :: \tNo runnable modules, Exit(1)")
-		os.Exit(1)
-	}
-	cancelFun()
-
-	// clean up
-	for _, mod := range runModules {
-		err = mod.Close()
-		wg.Done()
-		if err != nil {
-			logger.Fatalf("%s\tmodule close failed. error:%+v", mod.Name(), err)
-		}
-	}
-
-	wg.Wait()
-	os.Exit(0)
+	runModule(module.ModuleNameGnutls, gc)
 }

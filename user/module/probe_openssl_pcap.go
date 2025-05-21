@@ -15,17 +15,19 @@
 package module
 
 import (
-	"ecapture/user/config"
-	"ecapture/user/event"
 	"errors"
 	"fmt"
-	"github.com/cilium/ebpf"
-	manager "github.com/gojue/ebpfmanager"
-	"golang.org/x/sys/unix"
 	"math"
 	"net"
 	"path"
 	"strings"
+
+	"github.com/gojue/ecapture/user/config"
+	"github.com/gojue/ecapture/user/event"
+
+	"github.com/cilium/ebpf"
+	manager "github.com/gojue/ebpfmanager"
+	"golang.org/x/sys/unix"
 )
 
 type NetEventMetadata struct {
@@ -41,40 +43,35 @@ func (m *MOpenSSLProbe) setupManagersPcap() error {
 	m.ifName = ifname
 	interf, err := net.InterfaceByName(m.ifName)
 	if err != nil {
-		return err
+		return fmt.Errorf("InterfaceByName: %s , failed: %v", m.ifName, err)
 	}
 
-	// loopback devices are special, some tc probes should be skipped
-	isNetIfaceLo := interf.Flags&net.FlagLoopback == net.FlagLoopback
-	skipLoopback := true // TODO: detect loopback devices via aquasecrity/tracee/pkg/ebpf/probes/probe.go line 322
-	if isNetIfaceLo && skipLoopback {
-		return fmt.Errorf("%s\t%s is a loopback interface, skip it", m.Name(), m.ifName)
-	}
 	m.ifIdex = interf.Index
 
 	sslVersion = m.conf.(*config.OpensslConfig).SslVersion
 	sslVersion = strings.ToLower(sslVersion)
 	switch m.conf.(*config.OpensslConfig).ElfType {
-	//case config.ElfTypeBin:
+	// case config.ElfTypeBin:
 	//	binaryPath = m.conf.(*config.OpensslConfig).Curlpath
 	case config.ElfTypeSo:
 		binaryPath = m.conf.(*config.OpensslConfig).Openssl
-		err := m.getSslBpfFile(binaryPath, sslVersion)
+		err = m.getSslBpfFile(binaryPath, sslVersion)
 		if err != nil {
 			return err
 		}
 	default:
-		//如果没找到
+		// 如果没找到
 		binaryPath = path.Join(defaultSoPath, "libssl.so.1.1")
-		err := m.getSslBpfFile(binaryPath, sslVersion)
+		err = m.getSslBpfFile(binaryPath, sslVersion)
 		if err != nil {
 			return err
 		}
 	}
 
-	m.logger.Printf("%s\tHOOK type:%d, binrayPath:%s\n", m.Name(), m.conf.(*config.OpensslConfig).ElfType, binaryPath)
-	m.logger.Printf("%s\tIfname:%s, Ifindex:%d,  Port:%d, Pcapng filepath:%s\n", m.Name(), m.ifName, m.ifIdex, m.conf.(*config.OpensslConfig).Port, m.pcapngFilename)
-	m.logger.Printf("%s\tHook masterKey function:%s\n", m.Name(), m.masterHookFuncs)
+	pcapFilter := m.conf.(*config.OpensslConfig).PcapFilter
+	m.logger.Info().Str("binrayPath", binaryPath).Str("IFname", m.ifName).Int("IFindex", m.ifIdex).
+		Str("PcapFilter", pcapFilter).Uint8("ElfType", m.conf.(*config.OpensslConfig).ElfType).Msg("HOOK type:Openssl elf")
+	m.logger.Info().Strs("Functions", m.masterHookFuncs).Msg("Hook masterKey function")
 
 	// create pcapng writer
 	netIfs, err := net.Interfaces()
@@ -94,24 +91,15 @@ func (m *MOpenSSLProbe) setupManagersPcap() error {
 
 	m.bpfManager = &manager.Manager{
 		Probes: []*manager.Probe{
-			// customize deleteed TC filter
-			// tc filter del dev eth0 ingress
-			// tc filter del dev eth0 egress
-			// loopback devices are special, some tc probes should be skipped
-			// TODO: detect loopback devices via aquasecrity/tracee/pkg/ebpf/probes/probe.go line 322
-			// isNetIfaceLo := netIface.Flags&net.FlagLoopback == net.FlagLoopback
-			//	if isNetIfaceLo && p.skipLoopback {
-			//		return nil
-			//	}
 			{
 				Section:          "classifier/egress",
-				EbpfFuncName:     "egress_cls_func",
+				EbpfFuncName:     tcFuncNameEgress,
 				Ifname:           m.ifName,
 				NetworkDirection: manager.Egress,
 			},
 			{
 				Section:          "classifier/ingress",
-				EbpfFuncName:     "ingress_cls_func",
+				EbpfFuncName:     tcFuncNameIngress,
 				Ifname:           m.ifName,
 				NetworkDirection: manager.Ingress,
 			},
@@ -120,6 +108,11 @@ func (m *MOpenSSLProbe) setupManagersPcap() error {
 				EbpfFuncName:     "tcp_sendmsg",
 				Section:          "kprobe/tcp_sendmsg",
 				AttachToFuncName: "tcp_sendmsg",
+			},
+			{
+				EbpfFuncName:     "udp_sendmsg",
+				Section:          "kprobe/udp_sendmsg",
+				AttachToFuncName: "udp_sendmsg",
 			},
 		},
 
@@ -165,7 +158,7 @@ func (m *MOpenSSLProbe) setupManagersPcap() error {
 }
 
 func (m *MOpenSSLProbe) initDecodeFunPcap() error {
-	//SkbEventsMap 与解码函数映射
+	// SkbEventsMap 与解码函数映射
 	SkbEventsMap, found, err := m.bpfManager.GetMap("skb_events")
 	if err != nil {
 		return err
@@ -175,7 +168,7 @@ func (m *MOpenSSLProbe) initDecodeFunPcap() error {
 	}
 	m.eventMaps = append(m.eventMaps, SkbEventsMap)
 	sslEvent := &event.TcSkbEvent{}
-	//sslEvent.SetModule(m)
+	// sslEvent.SetModule(m)
 	m.eventFuncMaps[SkbEventsMap] = sslEvent
 
 	MasterkeyEventsMap, found, err := m.bpfManager.GetMap("mastersecret_events")
@@ -195,7 +188,7 @@ func (m *MOpenSSLProbe) initDecodeFunPcap() error {
 		masterkeyEvent = &event.MasterSecretEvent{}
 	}
 
-	//masterkeyEvent.SetModule(m)
+	// masterkeyEvent.SetModule(m)
 	m.eventFuncMaps[MasterkeyEventsMap] = masterkeyEvent
 	return nil
 }

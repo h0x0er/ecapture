@@ -15,19 +15,38 @@
 package module
 
 import (
-	"ecapture/user/event"
 	"errors"
+	"fmt"
 	"github.com/cilium/ebpf"
 	manager "github.com/gojue/ebpfmanager"
+	"github.com/gojue/ecapture/user/config"
+	"github.com/gojue/ecapture/user/event"
 	"golang.org/x/sys/unix"
 	"math"
+	"strings"
 )
 
 func (g *GoTLSProbe) setupManagersKeylog() error {
-
-	g.logger.Printf("%s\tHOOK type:golang elf, binrayPath:%s\n", g.Name(), g.path)
-	g.logger.Printf("%s\tHook masterKey function:%s\n", g.Name(), goTlsMasterSecretFunc)
-
+	var gotlsConf = g.conf.(*config.GoTLSConfig)
+	var buildInfo = new(strings.Builder)
+	for _, setting := range gotlsConf.Buildinfo.Settings {
+		if setting.Value == "" {
+			continue
+		}
+		buildInfo.WriteString(" ")
+		buildInfo.WriteString(setting.Key)
+		buildInfo.WriteString("=")
+		buildInfo.WriteString(setting.Value)
+	}
+	g.logger.Info().Str("binrayPath", g.path).
+		Str("GoVersion", gotlsConf.Buildinfo.GoVersion).
+		Str("buildInfo", buildInfo.String()).Msg("HOOK type:Golang elf")
+	if gotlsConf.IsPieBuildMode {
+		// buildmode pie is enabled.
+		g.logger.Warn().Msg("Golang elf buildmode with pie")
+	}
+	g.logger.Info().Str("Function", config.GoTlsMasterSecretFunc).
+		Str("EventCollectorAddr", fmt.Sprintf("%X", gotlsConf.GoTlsMasterSecretAddr)).Msg("Hook masterKey function")
 	var (
 		sec string
 		fn  string
@@ -47,9 +66,10 @@ func (g *GoTLSProbe) setupManagersKeylog() error {
 			{
 				Section:          sec,
 				EbpfFuncName:     fn,
-				AttachToFuncName: goTlsMasterSecretFunc,
+				AttachToFuncName: config.GoTlsMasterSecretFunc,
 				BinaryPath:       g.path,
 				UID:              "uprobe_gotls_master_secret",
+				UAddress:         g.conf.(*config.GoTLSConfig).GoTlsMasterSecretAddr,
 			},
 		},
 

@@ -15,14 +15,15 @@
 package module
 
 import (
-	"ecapture/user/config"
-	"ecapture/user/event"
 	"errors"
 	"fmt"
 	"github.com/cilium/ebpf"
 	manager "github.com/gojue/ebpfmanager"
+	"github.com/gojue/ecapture/user/config"
+	"github.com/gojue/ecapture/user/event"
 	"golang.org/x/sys/unix"
 	"math"
+	"strings"
 )
 
 func (g *GoTLSProbe) setupManagersText() error {
@@ -42,14 +43,32 @@ func (g *GoTLSProbe) setupManagersText() error {
 		readSec = "uprobe/gotls_read_stack"
 		readFn = "gotls_read_stack"
 	}
-	g.logger.Printf("%s\teBPF Function Name:%s, isRegisterABI:%t\n", g.Name(), fn, g.isRegisterABI)
+	var gotlsConf = g.conf.(*config.GoTLSConfig)
+	var buildInfo = new(strings.Builder)
+	for _, setting := range gotlsConf.Buildinfo.Settings {
+		if setting.Value == "" {
+			continue
+		}
+		buildInfo.WriteString(" ")
+		buildInfo.WriteString(setting.Key)
+		buildInfo.WriteString("=")
+		buildInfo.WriteString(setting.Value)
+	}
+	g.logger.Info().Str("binrayPath", g.path).Bool("isRegisterABI", g.isRegisterABI).
+		Str("GoVersion", gotlsConf.Buildinfo.GoVersion).
+		Str("buildInfo", buildInfo.String()).Msg("HOOK type:Golang elf")
+	if g.conf.(*config.GoTLSConfig).IsPieBuildMode {
+		// buildmode pie is enabled.
+		g.logger.Warn().Msg("Golang elf buildmode with pie")
+	}
 	g.bpfManager = &manager.Manager{
 		Probes: []*manager.Probe{
 			{
 				Section:          sec,
 				EbpfFuncName:     fn,
-				AttachToFuncName: goTlsWriteFunc,
+				AttachToFuncName: config.GoTlsWriteFunc,
 				BinaryPath:       g.path,
+				UAddress:         g.conf.(*config.GoTLSConfig).GoTlsWriteAddr,
 			},
 		},
 		Maps: []*manager.Map{
@@ -61,15 +80,16 @@ func (g *GoTLSProbe) setupManagersText() error {
 
 	readOffsets := g.conf.(*config.GoTLSConfig).ReadTlsAddrs
 	//g.bpfManager.Probes = []*manager.Probe{}
+	g.logger.Info().Str("function", readFn).
+		Str("offsets", fmt.Sprintf("%v", readOffsets)).Msg("golang uretprobe added.")
 	for _, v := range readOffsets {
 		var uid = fmt.Sprintf("%s_%d", readFn, v)
-		g.logger.Printf("%s\tadd uretprobe function :%s, offset:0x%X\n", g.Name(), config.GoTlsReadFunc, v)
 		g.bpfManager.Probes = append(g.bpfManager.Probes, &manager.Probe{
 			Section:          readSec,
 			EbpfFuncName:     readFn,
 			AttachToFuncName: config.GoTlsReadFunc,
 			BinaryPath:       g.path,
-			UprobeOffset:     uint64(v),
+			UAddress:         uint64(v),
 			UID:              uid,
 		})
 	}

@@ -15,15 +15,22 @@
 package module
 
 import (
-	"ecapture/user/config"
-	"ecapture/user/event"
 	"errors"
 	"fmt"
+	"math"
+	"net"
+
+	"github.com/gojue/ecapture/user/config"
+	"github.com/gojue/ecapture/user/event"
+
 	"github.com/cilium/ebpf"
 	manager "github.com/gojue/ebpfmanager"
 	"golang.org/x/sys/unix"
-	"math"
-	"net"
+)
+
+const (
+	tcFuncNameIngress = "ingress_cls_func"
+	tcFuncNameEgress  = "egress_cls_func"
 )
 
 func (g *GoTLSProbe) setupManagersPcap() error {
@@ -36,17 +43,13 @@ func (g *GoTLSProbe) setupManagersPcap() error {
 		return err
 	}
 
-	// loopback devices are special, some tc probes should be skipped
-	isNetIfaceLo := interf.Flags&net.FlagLoopback == net.FlagLoopback
-	skipLoopback := true // TODO: detect loopback devices via aquasecrity/tracee/pkg/ebpf/probes/probe.go line 322
-	if isNetIfaceLo && skipLoopback {
-		return fmt.Errorf("%s\t%s is a loopback interface, skip it", g.Name(), g.ifName)
-	}
 	g.ifIdex = interf.Index
 
-	g.logger.Printf("%s\tHOOK type:golang elf, binrayPath:%s\n", g.Name(), g.path)
-	g.logger.Printf("%s\tIfname:%s, Ifindex:%d,  Port:%d, Pcapng filepath:%s\n", g.Name(), g.ifName, g.ifIdex, g.conf.(*config.GoTLSConfig).Port, g.pcapngFilename)
-	g.logger.Printf("%s\tHook masterKey function:%s\n", g.Name(), goTlsMasterSecretFunc)
+	pcapFilter := g.conf.(*config.GoTLSConfig).PcapFilter
+	g.logger.Info().Str("binrayPath", g.path).Str("IFname", g.ifName).Int("IFindex", g.ifIdex).
+		Str("PcapFilter", pcapFilter).Msg("HOOK type:Golang elf")
+	g.logger.Info().Str("Function", config.GoTlsMasterSecretFunc).
+		Str("EventCollectorAddr", fmt.Sprintf("%X", g.conf.(*config.GoTLSConfig).GoTlsMasterSecretAddr)).Msg("Hook masterKey function")
 
 	// create pcapng writer
 	netIfs, err := net.Interfaces()
@@ -81,13 +84,13 @@ func (g *GoTLSProbe) setupManagersPcap() error {
 		Probes: []*manager.Probe{
 			{
 				Section:          "classifier/egress",
-				EbpfFuncName:     "egress_cls_func",
+				EbpfFuncName:     tcFuncNameEgress,
 				Ifname:           g.ifName,
 				NetworkDirection: manager.Egress,
 			},
 			{
 				Section:          "classifier/ingress",
-				EbpfFuncName:     "ingress_cls_func",
+				EbpfFuncName:     tcFuncNameIngress,
 				Ifname:           g.ifName,
 				NetworkDirection: manager.Ingress,
 			},
@@ -97,9 +100,10 @@ func (g *GoTLSProbe) setupManagersPcap() error {
 			{
 				Section:          sec,
 				EbpfFuncName:     fn,
-				AttachToFuncName: goTlsMasterSecretFunc,
+				AttachToFuncName: config.GoTlsMasterSecretFunc,
 				BinaryPath:       g.path,
 				UID:              "uprobe_gotls_master_secret",
+				UAddress:         g.conf.(*config.GoTLSConfig).GoTlsMasterSecretAddr,
 			},
 		},
 
@@ -136,7 +140,7 @@ func (g *GoTLSProbe) setupManagersPcap() error {
 }
 
 func (g *GoTLSProbe) initDecodeFunPcap() error {
-	//SkbEventsMap 与解码函数映射
+	// SkbEventsMap 与解码函数映射
 	SkbEventsMap, found, err := g.bpfManager.GetMap("skb_events")
 	if err != nil {
 		return err
@@ -146,7 +150,7 @@ func (g *GoTLSProbe) initDecodeFunPcap() error {
 	}
 	g.eventMaps = append(g.eventMaps, SkbEventsMap)
 	sslEvent := &event.TcSkbEvent{}
-	//sslEvent.SetModule(g)
+	// sslEvent.SetModule(g)
 	g.eventFuncMaps[SkbEventsMap] = sslEvent
 
 	// master secrets map at ebpf code

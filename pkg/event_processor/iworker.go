@@ -16,8 +16,11 @@ package event_processor
 
 import (
 	"bytes"
-	"ecapture/user/event"
 	"encoding/hex"
+	"errors"
+	"fmt"
+	"github.com/gojue/ecapture/user/event"
+	"sync/atomic"
 	"time"
 )
 
@@ -30,17 +33,26 @@ type IWorker interface {
 	// 收包
 	Write(event.IEventStruct) error
 	GetUUID() string
+	IfUsed() bool
+	Get()
+	Put()
 }
 
 const (
-	MaxTickerCount = 10 // 1 Sencond/(eventWorker.ticker.C) = 10
-	MaxChanLen     = 16 // 包队列长度
+	MaxTickerCount = 10   // 1 Sencond/(eventWorker.ticker.C) = 10
+	MaxChanLen     = 1024 // 包队列长度
 	//MAX_EVENT_LEN    = 16 // 事件数组长度
+)
+
+var (
+	ErrEventWorkerIncomingFull  = errors.New("eventWorker Write failed, incoming chan is full")
+	ErrEventWorkerOutcomingFull = errors.New("eventWorker Write failed, outComing chan is full")
 )
 
 type eventWorker struct {
 	incoming chan event.IEventStruct
 	//events      []user.IEventStruct
+	outComing   chan string
 	status      ProcessStatus
 	packetType  PacketType
 	ticker      *time.Ticker
@@ -49,6 +61,7 @@ type eventWorker struct {
 	processor   *EventProcessor
 	parser      IParser
 	payload     *bytes.Buffer
+	used        atomic.Bool
 }
 
 func NewEventWorker(uuid string, processor *EventProcessor) IWorker {
@@ -63,6 +76,7 @@ func NewEventWorker(uuid string, processor *EventProcessor) IWorker {
 func (ew *eventWorker) init(uuid string, processor *EventProcessor) {
 	ew.ticker = time.NewTicker(time.Millisecond * 100)
 	ew.incoming = make(chan event.IEventStruct, MaxChanLen)
+	ew.outComing = processor.outComing
 	ew.status = ProcessStateInit
 	ew.UUID = uuid
 	ew.processor = processor
@@ -75,39 +89,60 @@ func (ew *eventWorker) GetUUID() string {
 }
 
 func (ew *eventWorker) Write(e event.IEventStruct) error {
-	ew.incoming <- e
-	return nil
+	var err error
+	select {
+	case ew.incoming <- e:
+	default:
+		err = ErrEventWorkerIncomingFull
+	}
+	return err
 }
 
-// 输出包内容
-func (ew *eventWorker) Display() {
+func (ew *eventWorker) writeToChan(s string) error {
+	var err error
+	select {
+	case ew.outComing <- s:
+	default:
+		err = ErrEventWorkerOutcomingFull
+	}
+	return err
+}
 
+// Display 输出包内容
+func (ew *eventWorker) Display() error {
 	//  输出包内容
 	b := ew.parserEvents()
 	defer ew.parser.Reset()
 	if len(b) <= 0 {
-		return
+		return nil
 	}
 
 	if ew.processor.isHex {
 		b = []byte(hex.Dump(b))
 	}
 
-	// TODO 格式化的终端输出
-	// 重置状态
-	ew.processor.GetLogger().Printf("UUID:%s, Name:%s, Type:%d, Length:%d", ew.UUID, ew.parser.Name(), ew.parser.ParserType(), len(b))
-	ew.processor.GetLogger().Println("\n" + string(b))
+	//iWorker只负责写入，不应该打印。
+	e := ew.writeToChan(fmt.Sprintf("UUID:%s, Name:%s, Type:%d, Length:%d\n%s\n", ew.UUID, ew.parser.Name(), ew.parser.ParserType(), len(b), b))
 	//ew.parser.Reset()
 	// 设定状态、重置包类型
 	ew.status = ProcessStateInit
 	ew.packetType = PacketTypeNull
+	return e
 }
 
 func (ew *eventWorker) writeEvent(e event.IEventStruct) {
 	if ew.status != ProcessStateInit {
-		ew.processor.GetLogger().Printf("write events failed, unknow eventWorker status")
+		_ = ew.writeToChan("write events failed, unknow eventWorker status")
 		return
 	}
+
+	tsize := int(ew.processor.truncateSize)
+	//terminal write when reach the truncate size
+	if tsize > 0 && ew.payload.Len() >= tsize {
+		ew.payload.Truncate(tsize)
+		return
+	}
+
 	ew.payload.Write(e.Payload())
 }
 
@@ -118,7 +153,7 @@ func (ew *eventWorker) parserEvents() []byte {
 	ew.parser = parser
 	n, e := ew.parser.Write(ew.payload.Bytes())
 	if e != nil {
-		ew.processor.GetLogger().Printf("ew.parser write payload %d bytes, error:%v", n, e)
+		_ = ew.writeToChan(fmt.Sprintf("ew.parser write payload %d bytes, error:%v", n, e))
 	}
 	ew.status = ProcessStateDone
 	return ew.parser.Display()
@@ -127,12 +162,46 @@ func (ew *eventWorker) parserEvents() []byte {
 func (ew *eventWorker) Run() {
 	for {
 		select {
-		case _ = <-ew.ticker.C:
+		case <-ew.ticker.C:
 			// 输出包
 			if ew.tickerCount > MaxTickerCount {
 				//ew.processor.GetLogger().Printf("eventWorker TickerCount > %d, event closed.", MaxTickerCount)
-				ew.Close()
-				return
+				ew.processor.delWorkerByUUID(ew)
+
+				/*
+					When returned from delWorkerByUUID(), there are two possibilities:
+					1) no routine can touch it.
+					2) one routine can still touch ew because getWorkerByUUID()
+					*happen before* delWorkerByUUID()
+
+					When no routine can touch it (i.e.,ew.IfUsed == false),
+					we just drain the ew.incoming and return.
+
+					When one routine can touch it (i.e.,ew.IfUsed == true), we ensure
+					that we only return after the routine can not touch it
+					(i.e.,ew.IfUsed == false). At this point, we can ensure that no
+					other routine will touch it and send events through the ew.incoming.
+					So, we return.
+
+					Because eworker has been deleted from workqueue after delWorkerByUUID()
+					(ordered by a workqueue lock), at this point, we can ensure that
+					no ew will not be touched even **in the future**. So the return is
+					safe.
+
+				*/
+				for {
+					select {
+					case e := <-ew.incoming:
+						ew.writeEvent(e)
+					default:
+						if ew.IfUsed() {
+							time.Sleep(10 * time.Millisecond)
+							continue
+						}
+						ew.Close()
+						return
+					}
+				}
 			}
 			ew.tickerCount++
 		case e := <-ew.incoming:
@@ -147,7 +216,24 @@ func (ew *eventWorker) Run() {
 func (ew *eventWorker) Close() {
 	// 即将关闭， 必须输出结果
 	ew.ticker.Stop()
-	ew.Display()
+	_ = ew.Display()
 	ew.tickerCount = 0
-	ew.processor.delWorkerByUUID(ew)
+}
+
+func (ew *eventWorker) Get() {
+	if !ew.used.CompareAndSwap(false, true) {
+		panic("unexpected behavior and incorrect usage for eventWorker")
+	}
+}
+
+func (ew *eventWorker) Put() {
+	if !ew.used.CompareAndSwap(true, false) {
+		panic("unexpected behavior and incorrect usage for eventWorker")
+	}
+
+}
+
+func (ew *eventWorker) IfUsed() bool {
+
+	return ew.used.Load()
 }

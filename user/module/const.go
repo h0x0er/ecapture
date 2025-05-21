@@ -26,6 +26,7 @@ const (
 
 const (
 	ModuleNameBash     = "EBPFProbeBash"
+	ModuleNameZsh      = "EBPFProbeZsh"
 	ModuleNameMysqld   = "EBPFProbeMysqld"
 	ModuleNamePostgres = "EBPFProbePostgres"
 	ModuleNameOpenssl  = "EBPFProbeOPENSSL"
@@ -36,6 +37,7 @@ const (
 
 const (
 	BashErrnoDefault int = 128
+	ZshErrnoDefault  int = 128
 )
 
 const (
@@ -48,6 +50,8 @@ const (
 	*/
 	// 2022-12-16 改为 SSL_in_init
 	MasterKeyHookFuncBoringSSL = "SSL_in_init"
+	MasterKeyHookFuncSSLBefore = "SSL_in_before"
+	MasterKeyHookFuncSSLState  = "SSL_state"
 )
 
 var (
@@ -69,7 +73,7 @@ var (
 		//"SSL_is_init",  // boringssl
 		// 备用HOOK 函数
 		//"SSL_is_init_finished",
-		"SSL_in_before",
+		MasterKeyHookFuncSSLBefore,
 		"SSL_do_handshake",
 	}
 )
