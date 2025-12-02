@@ -109,9 +109,10 @@ static __always_inline int gotls_write(struct pt_regs *ctx, bool is_register_abi
     if (!event) {
         return 0;
     }
-    len = len & 0xFFFF;
-    event->data_len = len;
-    int ret = bpf_probe_read_user(&event->data, sizeof(event->data), (void *)str);
+
+    event->data_len = (len < MAX_DATA_SIZE_OPENSSL ? (len & (MAX_DATA_SIZE_OPENSSL - 1))
+                                     : MAX_DATA_SIZE_OPENSSL);
+    int ret = bpf_probe_read_user(&event->data, event->data_len, (void *)str);
     if (ret < 0) {
         debug_bpf_printk("gotls_write bpf_probe_read_user_str failed, ret:%d, str:%d\n", ret, str);
         return 0;
