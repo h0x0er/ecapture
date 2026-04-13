@@ -22,6 +22,7 @@
 #include "bpf/bpf_helpers.h"
 #include "bpf/bpf_tracing.h"
 #include "bpf/bpf_endian.h"
+#include "core_fixes.bpf.h"
 
 #else
 //CO:RE is disabled
@@ -49,7 +50,6 @@
 #include <linux/socket.h>
 #include <net/sock.h>
 #include <bpf/bpf_core_read.h>
-
 /*
  * The code in the bpf directory is the same as that in the bpf directory of the Linux kernel source code.
  * move from bpf/bpf_helpers.h to ecapture.h
@@ -88,5 +88,61 @@ struct ipv6hdr {
 #endif
 
 #include "common.h"
+
+
+// filter_rejects_base checks PID and UID only.
+// Safe to call from any BPF program type (TC, uprobe, kprobe).
+static __always_inline bool filter_rejects_base(u32 pid, u32 uid) {
+    if (less52 == 1) {
+        return false;
+    }
+    // if target_pid is 0 then we target all pids
+    if (target_pid != 0 && target_pid != pid) {
+        return true;
+    }
+    if (target_uid != 0 && target_uid != uid) {
+        return true;
+    }
+    return false;
+}
+
+// filter_rejects checks PID, UID, and cgroup.
+// Must only be called from uprobe/kprobe context where bpf_get_current_cgroup_id()
+// reliably returns the cgroup of the process being traced.
+static __always_inline bool filter_rejects(u32 pid, u32 uid) {
+    if (filter_rejects_base(pid, uid)) {
+        return true;
+    }
+    // if target_cgroup_id is 0 then we target all cgroups
+    if (target_cgroup_id != 0) {
+        u64 cgroup_id = bpf_get_current_cgroup_id();
+        if (cgroup_id != target_cgroup_id) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// Check whether the current process passes the PID/UID filter.
+static __always_inline bool passes_filter(struct pt_regs *ctx) {
+    // On kernels <= 5.2, .rodata is not supported; skip filtering.
+    if (less52 == 1) {
+        return true;
+    }
+
+    if (ctx == NULL) {
+        return true;
+    }
+
+    u64 current_pid_tgid = bpf_get_current_pid_tgid();
+    u32 pid = current_pid_tgid >> 32;
+    u64 current_uid_gid = bpf_get_current_uid_gid();
+    u32 uid = current_uid_gid;
+
+    if (filter_rejects(pid, uid)) {
+        return false;
+    }
+    return true;
+}
 
 #endif

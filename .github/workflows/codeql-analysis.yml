@@ -13,10 +13,10 @@ name: "CodeQL"
 
 on:
   push:
-    branches: [ master ]
+    branches: [ master, v2, v1 ]
   pull_request:
     # The branches below must be a subset of the branches above
-    branches: [ master ]
+    branches: [ master, v2, v1 ]
   schedule:
     - cron: '42 15 * * 3'
 
@@ -39,7 +39,7 @@ jobs:
     steps:
       - uses: actions/setup-go@v3
         with:
-          go-version: '1.22.10'
+          go-version: '1.24.6'
       - name: Checkout repository
         uses: actions/checkout@v4
         with:

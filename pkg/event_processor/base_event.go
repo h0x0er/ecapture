@@ -19,7 +19,7 @@ import (
 	"encoding/binary"
 	"fmt"
 
-	"github.com/gojue/ecapture/user/event"
+	pb "github.com/gojue/ecapture/protobuf/gen/v1"
 )
 
 type AttachType int64
@@ -47,12 +47,12 @@ const (
 	Dtls12Version = 0xFEFD
 )
 
-type tlsVersion struct {
-	version int32
+type TlsVersion struct {
+	Version int32
 }
 
-func (t tlsVersion) String() string {
-	switch t.version {
+func (t TlsVersion) String() string {
+	switch t.Version {
 	case Ssl2Version:
 		return "SSL2_VERSION"
 	case Ssl3Version:
@@ -70,11 +70,11 @@ func (t tlsVersion) String() string {
 	case Dtls12Version:
 		return "DTLS1_2_VERSION"
 	}
-	return fmt.Sprintf("TLS_VERSION_UNKNOWN_%d", t.version)
+	return fmt.Sprintf("TLS_VERSION_UNKNOWN_%d", t.Version)
 }
 
 type BaseEvent struct {
-	eventType event.EventType
+	eventType Type
 	DataType  int64
 	Timestamp uint64
 	Pid       uint32
@@ -145,7 +145,7 @@ func (be *BaseEvent) StringHex() string {
 
 	b := dumpByteSlice(be.Data[:be.DataLen], prefix)
 
-	v := tlsVersion{version: be.Version}
+	v := TlsVersion{Version: be.Version}
 	s := fmt.Sprintf("PID:%d, Comm:%s, TID:%d, %s, Version:%s, Payload:\n%s", be.Pid, CToGoString(be.Comm[:]), be.Tid, connInfo, v.String(), b.String())
 	return s
 }
@@ -161,18 +161,38 @@ func (be *BaseEvent) String() string {
 	default:
 		connInfo = fmt.Sprintf("UNKNOWN_%d", be.DataType)
 	}
-	v := tlsVersion{version: be.Version}
+	v := TlsVersion{Version: be.Version}
 	s := fmt.Sprintf("PID:%d, Comm:%s, TID:%d, Version:%s, %s, Payload:\n%s", be.Pid, bytes.TrimSpace(be.Comm[:]), be.Tid, v.String(), connInfo, string(be.Data[:be.DataLen]))
 	return s
 }
 
-func (be *BaseEvent) Clone() event.IEventStruct {
+func (be *BaseEvent) Clone() IEventStruct {
 	e := new(BaseEvent)
-	e.eventType = event.EventTypeOutput
+	e.eventType = TypeOutput
 	return e
 }
 
-func (be *BaseEvent) EventType() event.EventType {
+func (be *BaseEvent) Base() Base {
+	return Base{
+		Timestamp: int64(be.Timestamp),
+		UUID:      be.GetUUID(),
+		PID:       int64(be.Pid),
+		PName:     CToGoString(be.Comm[:]),
+	}
+}
+
+func (be *BaseEvent) ToProtobufEvent() *pb.Event {
+	// Convert BaseEvent to protobuf Event. Some fields (IPs/ports) are not available at this layer
+	// and will remain zero values. Display() will fill Type/Length/Payload accordingly.
+	return &pb.Event{
+		Timestamp: int64(be.Timestamp),
+		Uuid:      be.GetUUID(),
+		Pid:       int64(be.Pid),
+		Pname:     CToGoString(be.Comm[:]),
+	}
+}
+
+func (be *BaseEvent) EventType() Type {
 	return be.eventType
 }
 
@@ -197,7 +217,7 @@ func dumpByteSlice(b []byte, prefix string) *bytes.Buffer {
 		// 序号列
 		if i%ChunkSize == 0 {
 			bb.WriteString(prefix)
-			bb.WriteString(fmt.Sprintf("%04d", i))
+			_, _ = fmt.Fprintf(bb, "%04d", i)
 		}
 
 		// 长度的一半，则输出4个空格
@@ -208,7 +228,7 @@ func dumpByteSlice(b []byte, prefix string) *bytes.Buffer {
 		}
 
 		if i < len(b) {
-			bb.WriteString(fmt.Sprintf(" %02X", b[i]))
+			_, _ = fmt.Fprintf(bb, " %02X", b[i])
 		} else {
 			bb.WriteString("  ")
 		}
@@ -224,7 +244,7 @@ func dumpByteSlice(b []byte, prefix string) *bytes.Buffer {
 
 		// 如果到达size长度，则换行
 		if i%ChunkSize == (ChunkSize - 1) {
-			bb.WriteString(fmt.Sprintf("    %s\n", string(a[:])))
+			_, _ = fmt.Fprintf(bb, "    %s\n", string(a[:]))
 		}
 	}
 	return bb

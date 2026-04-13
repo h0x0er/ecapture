@@ -1,0 +1,89 @@
+name: PR Build (Debug)
+on:
+  pull_request:
+    branches: [ master, v2, v1 ]
+    types: [ opened, synchronize, reopened ]
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-debug-artifacts:
+    runs-on: ubuntu-22.04
+    name: Build Debug Artifacts
+    strategy:
+      matrix:
+        os: [ android, linux ]
+        arch: [ arm64, amd64 ]
+    steps:
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.6'
+
+      - name: Install Compilers
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes \
+            build-essential \
+            pkgconf \
+            libelf-dev \
+            llvm-14 \
+            clang-14 \
+            linux-tools-common \
+            linux-tools-generic \
+            gcc \
+            gcc-aarch64-linux-gnu \
+            linux-source
+          for tool in "clang" "llc" "llvm-strip"
+          do
+            sudo rm -f /usr/bin/$tool
+            sudo ln -s /usr/bin/$tool-14 /usr/bin/$tool
+          done
+          cd /usr/src
+          source_file=$(find . -maxdepth 1 -name "*linux-source*.tar.bz2")
+          source_dir=$(echo "$source_file" | sed 's/\.tar\.bz2//g')
+          sudo tar -xf $source_file
+          cd $source_dir
+          test -f .config || sudo make oldconfig
+          sudo make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- prepare V=0
+
+      - uses: actions/checkout@v4
+        with:
+          submodules: 'recursive'
+          fetch-depth: 0
+
+      - name: Build Debug amd64
+        if: matrix.arch == 'amd64'
+        run: |
+          make clean
+          make env
+          DEBUG=1 make -f builder/Makefile.release release SNAPSHOT_VERSION=v0.0.0-pr-${{ github.event.number || 'dev' }}-debug
+          cp bin/ecapture-*.tar.gz dist/
+
+      - name: Build Debug arm64
+        if: matrix.arch == 'arm64'
+        run: |
+          make clean
+          make env
+          DEBUG=1 CROSS_ARCH=arm64 make -f builder/Makefile.release release SNAPSHOT_VERSION=v0.0.0-pr-${{ github.event.number || 'dev' }}-debug
+          cp bin/ecapture-*.tar.gz dist/
+
+      - name: Upload Debug Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ecapture-v0.0.0-pr-${{ github.event.number || 'dev' }}-debug-${{ matrix.os }}-${{ matrix.arch }}.tar.gz
+          path: dist/ecapture-v0.0.0-pr-${{ github.event.number || 'dev' }}-debug-${{ matrix.os }}-${{ matrix.arch }}.tar.gz
+          retention-days: 7
+
+      - name: List Built Artifacts
+        run: |
+          echo "Built debug artifacts:"
+          ls -la dist/
+          echo "Artifact sizes:"
+          du -h dist/*

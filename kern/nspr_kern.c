@@ -65,17 +65,16 @@ struct {
  * General helper functions
  ***********************************************************/
 
-static __inline struct ssl_data_event_t* create_ssl_data_event(u64 current_pid_tgid) {
-    u32 kZero = 0;
-    struct ssl_data_event_t* event = bpf_map_lookup_elem(&data_buffer_heap, &kZero);
+static __always_inline struct ssl_data_event_t* create_ssl_data_event(u64 current_pid_tgid) {
+    u32 zero = 0;
+    struct ssl_data_event_t* event = bpf_map_lookup_elem(&data_buffer_heap, &zero);
     if (event == NULL) {
         return NULL;
     }
 
-    const u32 kMask32b = 0xffffffff;
     event->timestamp_ns = bpf_ktime_get_ns();
     event->pid = current_pid_tgid >> 32;
-    event->tid = current_pid_tgid & kMask32b;
+    event->tid = current_pid_tgid & 0xffffffff;
     return event;
 }
 
@@ -115,19 +114,11 @@ SEC("uprobe/PR_Write")
 int probe_entry_SSL_write(struct pt_regs* ctx) {
     u64 current_pid_tgid = bpf_get_current_pid_tgid();
     u32 pid = current_pid_tgid >> 32;
-    u64 current_uid_gid = bpf_get_current_uid_gid();
-    u32 uid = current_uid_gid;
     debug_bpf_printk("nspr uprobe/PR_Write pid :%d\n", pid);
 
-#ifndef KERNEL_LESS_5_2
-    // if target_ppid is 0 then we target all pids
-    if (target_pid != 0 && target_pid != pid) {
+    if (!passes_filter(ctx)) {
         return 0;
     }
-    if (target_uid != 0 && target_uid != uid) {
-        return 0;
-    }
-#endif
 
     const char* buf = (const char*)PT_REGS_PARM2(ctx);
     bpf_map_update_elem(&active_ssl_write_args_map, &current_pid_tgid, &buf, BPF_ANY);
@@ -138,19 +129,11 @@ SEC("uretprobe/PR_Write")
 int probe_ret_SSL_write(struct pt_regs* ctx) {
     u64 current_pid_tgid = bpf_get_current_pid_tgid();
     u32 pid = current_pid_tgid >> 32;
-    u64 current_uid_gid = bpf_get_current_uid_gid();
-    u32 uid = current_uid_gid;
     debug_bpf_printk("nspr uretprobe/PR_Write pid :%d\n", pid);
 
-#ifndef KERNEL_LESS_5_2
-    // if target_ppid is 0 then we target all pids
-    if (target_pid != 0 && target_pid != pid) {
+    if (!passes_filter(ctx)) {
         return 0;
     }
-    if (target_uid != 0 && target_uid != uid) {
-        return 0;
-    }
-#endif
 
     const char** buf = bpf_map_lookup_elem(&active_ssl_write_args_map, &current_pid_tgid);
     if (buf != NULL) {
@@ -170,19 +153,11 @@ SEC("uprobe/PR_Read")
 int probe_entry_SSL_read(struct pt_regs* ctx) {
     u64 current_pid_tgid = bpf_get_current_pid_tgid();
     u32 pid = current_pid_tgid >> 32;
-    u64 current_uid_gid = bpf_get_current_uid_gid();
-    u32 uid = current_uid_gid;
     debug_bpf_printk("nspr uprobe/PR_Read pid :%d\n", pid);
 
-#ifndef KERNEL_LESS_5_2
-    // if target_ppid is 0 then we target all pids
-    if (target_pid != 0 && target_pid != pid) {
+    if (!passes_filter(ctx)) {
         return 0;
     }
-    if (target_uid != 0 && target_uid != uid) {
-        return 0;
-    }
-#endif
 
     const char* buf = (const char*)PT_REGS_PARM2(ctx);
     bpf_map_update_elem(&active_ssl_read_args_map, &current_pid_tgid, &buf, BPF_ANY);
@@ -193,19 +168,11 @@ SEC("uretprobe/PR_Read")
 int probe_ret_SSL_read(struct pt_regs* ctx) {
     u64 current_pid_tgid = bpf_get_current_pid_tgid();
     u32 pid = current_pid_tgid >> 32;
-    u64 current_uid_gid = bpf_get_current_uid_gid();
-    u32 uid = current_uid_gid;
     debug_bpf_printk("nspr uretprobe/PR_Read pid :%d\n", pid);
 
-#ifndef KERNEL_LESS_5_2
-    // if target_ppid is 0 then we target all pids
-    if (target_pid != 0 && target_pid != pid) {
+    if (!passes_filter(ctx)) {
         return 0;
     }
-    if (target_uid != 0 && target_uid != uid) {
-        return 0;
-    }
-#endif
 
     const char** buf = bpf_map_lookup_elem(&active_ssl_read_args_map, &current_pid_tgid);
     if (buf != NULL) {

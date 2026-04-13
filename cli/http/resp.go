@@ -18,19 +18,18 @@ package http
 type Status uint8
 
 const (
-	RespOK Status = iota
-	RespErrorInvaildRequest
-	RespErrorInternalServer
-	RespErrorNotFound
-	RespConfigDecodeFailed
-	RespConfigCheckFailed
-	RespSendToChanFailed
+	RespOK                  Status = iota // 请求成功
+	RespErrorInvaildRequest               // 请求无效
+	RespErrorInternalServer               // 服务器内部错误
+	RespErrorNotFound                     // 模块资源未找到
+	RespConfigDecodeFailed                // 配置解码失败
+	RespConfigCheckFailed                 // 配置校验失败
+	RespSendToChanFailed                  // 发送配置到通道失败
 )
 
-// Resp -
 type Resp struct {
-	Code       Status      `json:"code"`
-	ModuleType string      `json:"module_type"` // config.ModuleType
-	Msg        string      `json:"msg"`
-	Data       interface{} `json:"data"`
+	Code       Status `json:"code"`
+	ModuleType string `json:"module_type"` // config.ModuleType
+	Msg        string `json:"msg"`
+	Data       any    `json:"data"`
 }

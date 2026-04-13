@@ -37,10 +37,12 @@ function run() {
   sslVerMap["9"]="0"
   sslVerMap["10"]="0"
   sslVerMap["11"]="0"
-  sslVerMap["12"]="0"
+  sslVerMap["12"]="12"  # 3.0.12 is different from 3.0.0 ~ 3.0.11 and 3.0.13 ~ 3.0.17  2025-08-23
   sslVerMap["13"]="0"
   sslVerMap["14"]="0"
   sslVerMap["15"]="0"
+  sslVerMap["16"]="0"
+  sslVerMap["17"]="0"
 
   # shellcheck disable=SC2068
   for ver in ${!sslVerMap[@]}; do
@@ -75,7 +77,7 @@ function run() {
     ./offset >>${header_file}
     echo -e "#include \"openssl.h\"" >>${header_file}
     echo -e "#include \"openssl_masterkey_3.0.h\"" >>${header_file}
-    echo -e "\n#endif" >>${header_file}
+    echo -e "#endif" >>${header_file}
 
     # clean up
     make clean

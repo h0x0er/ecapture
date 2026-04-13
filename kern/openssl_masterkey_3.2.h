@@ -13,90 +13,26 @@
 // limitations under the License.
 
 #include "ecapture.h"
+#include "include/openssl_masterkey_common.h"
 
 // https://wiki.openssl.org/index.php/TLS1.3
-// 仅openssl 1.1.1 后才支持 TLS 1.3 协议
-
-// openssl 1.1.1.X 版本相关的常量
-#define SSL3_RANDOM_SIZE 32
-#define MASTER_SECRET_MAX_LEN 48
-#define EVP_MAX_MD_SIZE 64
-
-struct mastersecret_t {
-    // TLS 1.2 or older
-    s32 version;
-    u8 client_random[SSL3_RANDOM_SIZE];
-    u8 master_key[MASTER_SECRET_MAX_LEN];
-
-    // TLS 1.3
-    u32 cipher_id;
-    u8 handshake_secret[EVP_MAX_MD_SIZE];
-    u8 handshake_traffic_hash[EVP_MAX_MD_SIZE];
-    u8 client_app_traffic_secret[EVP_MAX_MD_SIZE];
-    u8 server_app_traffic_secret[EVP_MAX_MD_SIZE];
-    u8 exporter_master_secret[EVP_MAX_MD_SIZE];
-};
-
-#define TLS1_1_VERSION 0x0302
-#define TLS1_2_VERSION 0x0303
-#define TLS1_3_VERSION 0x0304
+// Only OpenSSL >= 1.1.1 supports TLS 1.3
 
 #define SSL_TYPE_SSL_CONNECTION 0
 #define SSL_TYPE_QUIC_CONNECTION 1
 #define SSL_TYPE_QUIC_XSO 2
 
-/////////////////////////BPF MAPS ////////////////////////////////
-
-// bpf map
-struct {
-    __uint(type, BPF_MAP_TYPE_PERF_EVENT_ARRAY);
-    __uint(key_size, sizeof(u32));
-    __uint(value_size, sizeof(u32));
-    __uint(max_entries, 1024);
-} mastersecret_events SEC(".maps");
-
-struct {
-    __uint(type, BPF_MAP_TYPE_LRU_HASH);
-    __type(key, u64);
-    __type(value, struct mastersecret_t);
-    __uint(max_entries, 2048);
-} bpf_context SEC(".maps");
-
-struct {
-    __uint(type, BPF_MAP_TYPE_ARRAY);
-    __type(key, u32);
-    __type(value, struct mastersecret_t);
-    __uint(max_entries, 1);
-} bpf_context_gen SEC(".maps");
-
-/////////////////////////COMMON FUNCTIONS ////////////////////////////////
-// 这个函数用来规避512字节栈空间限制，通过在堆上创建内存的方式，避开限制
-static __always_inline struct mastersecret_t *make_event() {
-    u32 key_gen = 0;
-    struct mastersecret_t *bpf_ctx = bpf_map_lookup_elem(&bpf_context_gen, &key_gen);
-    if (!bpf_ctx) return 0;
-    u64 id = bpf_get_current_pid_tgid();
-    bpf_map_update_elem(&bpf_context, &id, bpf_ctx, BPF_ANY);
-    return bpf_map_lookup_elem(&bpf_context, &id);
-}
-
-/////////////////////////BPF FUNCTIONS ////////////////////////////////
+/***********************************************************
+ * BPF probe function (OpenSSL 3.2+)
+ ***********************************************************/
 SEC("uprobe/SSL_write_key")
 int probe_ssl_master_key(struct pt_regs *ctx) {
     u64 current_pid_tgid = bpf_get_current_pid_tgid();
     u32 pid = current_pid_tgid >> 32;
-    u64 current_uid_gid = bpf_get_current_uid_gid();
-    u32 uid = current_uid_gid;
 
-#ifndef KERNEL_LESS_5_2
-    // if target_ppid is 0 then we target all pids
-    if (target_pid != 0 && target_pid != pid) {
+    if (!passes_filter(ctx)) {
         return 0;
     }
-    if (target_uid != 0 && target_uid != uid) {
-        return 0;
-    }
-#endif
     debug_bpf_printk("openssl uprobe/SSL_write masterKey PID :%d\n", pid);
 
     // mastersecret_t sent to userspace
@@ -107,10 +43,9 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
         debug_bpf_printk("mastersecret is null\n");
         return 0;
     }
-    // TODO 检查 ssl->type, 参考 ssl/ssl_local.h的 SSL_CONNECTION_FROM_SSL_int 宏
+    // TODO: check ssl->type, see ssl/ssl_local.h SSL_CONNECTION_FROM_SSL_int macro
     int type = 0;
     if (type == SSL_TYPE_QUIC_CONNECTION) {
-        // 重新获取 ssl->tls 的地址作为 SSL_CONNECTION的地址
         // Reget the address of the ssl->tls as the address of the SSL_CONNECTION
         debug_bpf_printk("unsupported type: SSL_CONNECTION, coming soon.\n");
         return 0;
@@ -125,7 +60,7 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
         debug_bpf_printk("bpf_probe_read tls_version failed, ret :%d\n", ret);
         return 0;
     }
-    mastersecret->version = version;  // int version;
+    mastersecret->version = version;
     debug_bpf_printk("TLS version :%d\n", mastersecret->version);
 
     u64 *ssl_client_random_ptr = (u64 *)(ssl_st_ptr + SSL_CONNECTION_ST_S3_CLIENT_RANDOM);
@@ -137,8 +72,8 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
         return 0;
     }
     debug_bpf_printk("client_random: %x %x %x\n", client_random[0], client_random[1], client_random[2]);
-    ret = bpf_probe_read_kernel(&mastersecret->client_random, sizeof(mastersecret->client_random),
-                                (void *)&client_random);
+    ret = bpf_probe_read_kernel(
+        &mastersecret->client_random, sizeof(mastersecret->client_random), (void *)&client_random);
     if (ret) {
         debug_bpf_printk("bpf_probe_read_kernel ssl3_stat.client_random failed, ret :%d\n", ret);
         return 0;
@@ -168,10 +103,10 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
         }
 
         debug_bpf_printk("master_key: %x %x %x\n", mastersecret->master_key[0], mastersecret->master_key[1],
-                         mastersecret->master_key[2]);
+            mastersecret->master_key[2]);
 
-        bpf_perf_event_output(ctx, &mastersecret_events, BPF_F_CURRENT_CPU, mastersecret,
-                              sizeof(struct mastersecret_t));
+        bpf_perf_event_output(
+            ctx, &mastersecret_events, BPF_F_CURRENT_CPU, mastersecret, sizeof(struct mastersecret_t));
         return 0;
     }
 
@@ -211,17 +146,24 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
 
     //////////////////// TLS 1.3 master secret ////////////////////////
 
+    void *es_ptr_tls13 = (void *)(ssl_st_ptr + SSL_CONNECTION_ST_EARLY_SECRET);
+    ret = bpf_probe_read_user(&mastersecret->early_secret, sizeof(mastersecret->early_secret), (void *)es_ptr_tls13);
+    if (ret) {
+        debug_bpf_printk("bpf_probe_read SSL_ST_EARLY_SECRET failed, ret :%d\n", ret);
+        // If the read fails, it may be because TLS 1.3 early data is not enabled, so this error can be ignored
+    }
+
     void *hs_ptr_tls13 = (void *)(ssl_st_ptr + SSL_CONNECTION_ST_HANDSHAKE_SECRET);
-    ret = bpf_probe_read_user(&mastersecret->handshake_secret, sizeof(mastersecret->handshake_secret),
-                              (void *)hs_ptr_tls13);
+    ret = bpf_probe_read_user(
+        &mastersecret->handshake_secret, sizeof(mastersecret->handshake_secret), (void *)hs_ptr_tls13);
     if (ret) {
         debug_bpf_printk("bpf_probe_read SSL_CONNECTION_ST_HANDSHAKE_SECRET failed, ret :%d\n", ret);
         return 0;
     }
 
     void *hth_ptr_tls13 = (void *)(ssl_st_ptr + SSL_CONNECTION_ST_HANDSHAKE_TRAFFIC_HASH);
-    ret = bpf_probe_read_user(&mastersecret->handshake_traffic_hash, sizeof(mastersecret->handshake_traffic_hash),
-                              (void *)hth_ptr_tls13);
+    ret = bpf_probe_read_user(
+        &mastersecret->handshake_traffic_hash, sizeof(mastersecret->handshake_traffic_hash), (void *)hth_ptr_tls13);
     if (ret) {
         debug_bpf_printk("bpf_probe_read SSL_CONNECTION_ST_HANDSHAKE_TRAFFIC_HASH failed, ret :%d\n", ret);
         return 0;
@@ -229,7 +171,7 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
 
     void *cats_ptr_tls13 = (void *)(ssl_st_ptr + SSL_CONNECTION_ST_CLIENT_APP_TRAFFIC_SECRET);
     ret = bpf_probe_read_user(&mastersecret->client_app_traffic_secret, sizeof(mastersecret->client_app_traffic_secret),
-                              (void *)cats_ptr_tls13);
+        (void *)cats_ptr_tls13);
     if (ret) {
         debug_bpf_printk("bpf_probe_read SSL_CONNECTION_ST_CLIENT_APP_TRAFFIC_SECRET failed, ret :%d\n", ret);
         return 0;
@@ -237,21 +179,21 @@ int probe_ssl_master_key(struct pt_regs *ctx) {
 
     void *sats_ptr_tls13 = (void *)(ssl_st_ptr + SSL_CONNECTION_ST_SERVER_APP_TRAFFIC_SECRET);
     ret = bpf_probe_read_user(&mastersecret->server_app_traffic_secret, sizeof(mastersecret->server_app_traffic_secret),
-                              (void *)sats_ptr_tls13);
+        (void *)sats_ptr_tls13);
     if (ret) {
         debug_bpf_printk("bpf_probe_read SSL_CONNECTION_ST_SERVER_APP_TRAFFIC_SECRET failed, ret :%d\n", ret);
         return 0;
     }
 
     void *ems_ptr_tls13 = (void *)(ssl_st_ptr + SSL_CONNECTION_ST_EXPORTER_MASTER_SECRET);
-    ret = bpf_probe_read_user(&mastersecret->exporter_master_secret, sizeof(mastersecret->exporter_master_secret),
-                              (void *)ems_ptr_tls13);
+    ret = bpf_probe_read_user(
+        &mastersecret->exporter_master_secret, sizeof(mastersecret->exporter_master_secret), (void *)ems_ptr_tls13);
     if (ret) {
         debug_bpf_printk("bpf_probe_read SSL_CONNECTION_ST_EXPORTER_MASTER_SECRET failed, ret :%d\n", ret);
         return 0;
     }
     debug_bpf_printk("*****master_secret*****: %x %x %x\n", mastersecret->master_key[0], mastersecret->master_key[1],
-                     mastersecret->master_key[2]);
+        mastersecret->master_key[2]);
     bpf_perf_event_output(ctx, &mastersecret_events, BPF_F_CURRENT_CPU, mastersecret, sizeof(struct mastersecret_t));
     return 0;
 }

@@ -17,10 +17,11 @@ package upgrade
 import (
 	"context"
 	"fmt"
-	"golang.org/x/sys/unix"
 	"regexp"
 	"strings"
 	"testing"
+
+	"golang.org/x/sys/unix"
 )
 
 const urlReleases = "https://api.github.com/repos/gojue"
@@ -33,7 +34,7 @@ func TestCheckLatest(t *testing.T) {
 	// 调用 uname 系统调用
 	err := unix.Uname(&uname)
 	if err != nil {
-		t.Logf("Upgrader: Error getting uname: %v", err)
+		t.Logf("Upgrader: Error getting uname: %s", err.Error())
 		return
 	}
 
@@ -44,7 +45,7 @@ func TestCheckLatest(t *testing.T) {
 	)
 	t.Logf("User-Agent:%d, %s", len(useragent), useragent)
 	//var ver = "linux_arm64:v0.8.8:5.15.0-125-generic"
-	var ver = "androidgki:v0.8.8:5.15.0-125-generic"
+	var ver = "ecap_android:v0.8.8:5.15.0-125-generic"
 	ver = "linux_arm64:v0.8.10-20241116-fcddaeb:5.15.0-125-generic"
 	ver = "linux_arm64:v0.9.1:6.5.0-1025-azure"
 	var arch = "amd64"
@@ -57,22 +58,23 @@ func TestCheckLatest(t *testing.T) {
 	verMatch := rex.FindStringSubmatch(ver)
 	if len(verMatch) <= 2 {
 		t.Fatalf("Error matching version: %s", ver)
+		return
 	}
 	t.Logf("match Version: %v", verMatch)
 	var os = "linux"
-	if strings.Contains(verMatch[1], "androidgki") {
+	if strings.Contains(verMatch[1], "ecap_android") {
 		os = "android"
 	}
 
-	githubResp, err := GetLatestVersion(useragent, fmt.Sprintf("%s%s?ver=%s", urlReleasesCN, apiReleases, ver), context.Background())
+	githubResp, err := GetLatestVersion(useragent, fmt.Sprintf("%s%s?ver=%s", urlReleases, apiReleases, ver), context.Background())
 	if err != nil {
-		t.Fatalf("Error getting latest version: %v", err)
+		t.Fatalf("Error getting latest version: %s", err.Error())
 	}
 
 	t.Logf("Latest version: %v", githubResp.TagName)
 	comp, err := CheckVersion(verMatch[2], githubResp.TagName)
 	if err != nil {
-		t.Fatalf("Error checking version: %v", err)
+		t.Fatalf("Error checking version: %s", err.Error())
 	}
 	t.Logf("Version comparison: %v", comp)
 

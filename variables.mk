@@ -33,9 +33,8 @@ CMD_CD ?= cd
 CMD_DPKG-DEB ?= dpkg-deb
 CMD_ECHO ?= echo
 
-KERNEL_LESS_5_2_PREFIX ?= _less52.o
 BYTECODE_FILES ?= all
-STYLE    ?= "{BasedOnStyle: Google, IndentWidth: 4, TabWidth: 4, UseTab: Never, ColumnLimit: 120}"
+STYLE    ?= "{BasedOnStyle: Google, IndentWidth: 4, TabWidth: 4, UseTab: Never, ColumnLimit: 120, AlignAfterOpenBracket: DontAlign, BinPackArguments: true, BreakStringLiterals: false}"
 IGNORE_LESS52 ?=
 AUTOGENCMD ?=
 BPFHEADER := -I ./kern
@@ -64,7 +63,7 @@ ifndef ANDROID
 endif
 
 ifeq ($(ANDROID),1)
-	TARGET_TAG := androidgki
+	TARGET_TAG := ecap_android
 	TARGET_OS = android
 endif
 
@@ -191,6 +190,7 @@ TARGETS := kern/boringssl_na
 TARGETS += kern/boringssl_a_13
 TARGETS += kern/boringssl_a_14
 TARGETS += kern/boringssl_a_15
+TARGETS += kern/boringssl_a_16
 TARGETS += kern/openssl_1_1_1a
 TARGETS += kern/openssl_1_1_1b
 TARGETS += kern/openssl_1_1_1d
@@ -198,6 +198,7 @@ TARGETS += kern/openssl_1_1_1j
 TARGETS += kern/openssl_1_1_0a
 TARGETS += kern/openssl_1_0_2a
 TARGETS += kern/openssl_3_0_0
+TARGETS += kern/openssl_3_0_12
 TARGETS += kern/openssl_3_1_0
 TARGETS += kern/openssl_3_2_0
 TARGETS += kern/openssl_3_2_3
@@ -207,13 +208,14 @@ TARGETS += kern/openssl_3_3_2
 TARGETS += kern/openssl_3_3_3
 TARGETS += kern/openssl_3_4_0
 TARGETS += kern/openssl_3_4_1
+TARGETS += kern/openssl_3_5_0
 TARGETS += kern/gotls
+TARGETS += kern/bash
 
 ifeq ($(ANDROID),0)
-	TARGETS += kern/bash
 	TARGETS += kern/zsh
 	TARGETS += kern/gnutls_3_6_12
-	TARGETS += kern/gnutls_3_6_14
+	TARGETS += kern/gnutls_3_6_13
 	TARGETS += kern/gnutls_3_7_0
 	TARGETS += kern/gnutls_3_7_3
 	TARGETS += kern/gnutls_3_7_7
@@ -258,6 +260,7 @@ EXTRA_CFLAGS_NOCORE ?= -emit-llvm -O2 -S\
 	-Wno-deprecated-declarations \
 	-Wno-compare-distinct-pointer-types \
 	-Wno-address-of-packed-member \
+	-Wno-unknown-attributes \
 	-fno-stack-protector \
 	-fno-jump-tables \
 	-fno-unwind-tables \
@@ -276,10 +279,6 @@ RPM_SOURCE0 = $(ECAPTURE_NAME)-$(TAG).tar.gz
 #
 
 OUTPUT_DIR = ./bin
-#TAR_DIR = ecapture-$(DEB_VERSION)-linux-$(GOARCH)
-#TAR_DIR_NOCORE = ecapture-$(DEB_VERSION)-linux-$(GOARCH)-nocore
-#TAR_DIR_ANDROID = ecapture-$(DEB_VERSION)-android-$(GOARCH)
-#TAR_DIR_ANDROID_NOCORE = ecapture-$(DEB_VERSION)-android-$(GOARCH)-nocore
 
 # from CLI args.
 RELEASE_NOTES ?= release_notes.txt
@@ -299,8 +298,4 @@ BUILD_DIR = build
 # Create a release snapshot
 #
 
-#OUT_ARCHIVE := $(OUTPUT_DIR)/$(TAR_DIR).tar.gz
-#OUT_ARCHIVE_NOCORE := $(OUTPUT_DIR)/$(TAR_DIR_NOCORE).tar.gz
-#OUT_ARCHIVE_ANDROID := $(OUTPUT_DIR)/$(TAR_DIR_ANDROID).tar.gz
-#OUT_ARCHIVE_ANDROID_NOCORE := $(OUTPUT_DIR)/$(TAR_DIR_ANDROID_NOCORE).tar.gz
 OUT_CHECKSUMS := checksum-$(DEB_VERSION).txt

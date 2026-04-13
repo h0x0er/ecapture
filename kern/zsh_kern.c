@@ -1,3 +1,17 @@
+// Copyright 2022 CFC4N <cfc4n.cs@gmail.com>. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include "ecapture.h"
 
 struct event {
@@ -24,21 +38,15 @@ int uretprobe_zsh_zleentry(struct pt_regs *ctx) {
     u32 pid = pid_tgid >> 32;
     u64 current_uid_gid = bpf_get_current_uid_gid();
     u32 uid = current_uid_gid;
-#ifndef KERNEL_LESS_5_2
-    // if target_ppid is 0 then we target all pids
-    if (target_pid != 0 && target_pid != pid) {
+    if (!passes_filter(ctx)) {
         return 0;
     }
-    if (target_uid != 0 && target_uid != uid) {
-        return 0;
-    }
-#endif
     struct event event = {};
     event.pid = pid;
     event.uid = uid;
     event.type = ZSH_EVENT_TYPE_READLINE;
-    bpf_get_current_comm(&event.comm, sizeof(event.comm));   
-    bpf_probe_read_user(&event.line, sizeof(event.line),(void *)PT_REGS_RC(ctx));
+    bpf_get_current_comm(&event.comm, sizeof(event.comm));
+    bpf_probe_read_user(&event.line, sizeof(event.line), (void *)PT_REGS_RC(ctx));
     bpf_perf_event_output(ctx, &events, BPF_F_CURRENT_CPU, &event, sizeof(struct event));
     return 0;
 }

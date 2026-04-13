@@ -1,5 +1,5 @@
-//go:build !androidgki
-// +build !androidgki
+//go:build !ecap_android
+// +build !ecap_android
 
 // Copyright 2022 CFC4N <cfc4n.cs@gmail.com>. All Rights Reserved.
 //
@@ -18,27 +18,38 @@
 package cmd
 
 import (
-	"github.com/gojue/ecapture/user/config"
-	"github.com/gojue/ecapture/user/module"
 	"github.com/spf13/cobra"
+
+	"github.com/gojue/ecapture/internal/factory"
+	postgresProbe "github.com/gojue/ecapture/internal/probe/postgres"
 )
 
-var pgc = config.NewPostgresConfig()
+var postgresConfig = postgresProbe.NewConfig()
 
 // postgres Cmd represents the postgres command
 var postgresCmd = &cobra.Command{
 	Use:   "postgres",
 	Short: "capture sql queries from postgres 10+.",
-	Run:   postgresCommandFunc,
+	RunE:  postgresCommandFunc,
 }
 
 func init() {
-	postgresCmd.PersistentFlags().StringVarP(&pgc.PostgresPath, "postgres", "m", "/usr/bin/postgres", "postgres binary file path, use to hook")
-	postgresCmd.PersistentFlags().StringVarP(&pgc.FuncName, "funcname", "f", "", "function name to hook")
+	postgresCmd.PersistentFlags().StringVarP(&postgresConfig.PostgresPath, "postgres", "m", "/usr/bin/postgres", "postgres binary file path, use to hook")
+	postgresCmd.PersistentFlags().StringVarP(&postgresConfig.FuncName, "funcname", "f", "", "function name to hook")
 	rootCmd.AddCommand(postgresCmd)
 }
 
-// postgres CommandFunc executes the "psql" command.
-func postgresCommandFunc(command *cobra.Command, args []string) {
-	runModule(module.ModuleNamePostgres, pgc)
+// postgres CommandFunc executes the "psql" command using the new probe architecture.
+func postgresCommandFunc(command *cobra.Command, args []string) error {
+	// Set global config to postgres-specific config
+	postgresConfig.SetPid(globalConf.Pid)
+	postgresConfig.SetUid(globalConf.Uid)
+	postgresConfig.SetDebug(globalConf.Debug)
+	postgresConfig.SetHex(globalConf.IsHex)
+	postgresConfig.SetBTF(globalConf.BtfMode)
+	postgresConfig.SetPerCpuMapSize(globalConf.PerCpuMapSize)
+	postgresConfig.SetTruncateSize(globalConf.TruncateSize)
+
+	// Run probe using the common entry point
+	return runProbe(factory.ProbeTypePostgres, postgresConfig)
 }

@@ -61,6 +61,7 @@
 //         struct {
 //             // ignore
 //             // ...
+//             uint8_t e_ckey[MAX_HASH_SIZE]; /* client_early_traffic_secret */
 //             uint8_t hs_ckey[MAX_HASH_SIZE]; /* client_hs_traffic_secret */
 //             uint8_t hs_skey[MAX_HASH_SIZE]; /* server_hs_traffic_secret */
 //             uint8_t ap_ckey[MAX_HASH_SIZE]; /* client_ap_traffic_secret */
@@ -93,6 +94,7 @@ struct gnutls_mastersecret_st {
 
     /* tls1.3 */
     u32 cipher_id;
+    u8 client_early_traffic_secret[MAX_HASH_SIZE];
     u8 client_handshake_secret[MAX_HASH_SIZE];
     u8 server_handshake_secret[MAX_HASH_SIZE];
     u8 client_traffic_secret[MAX_HASH_SIZE];
@@ -144,7 +146,8 @@ struct {
 } bpf_context_gen SEC(".maps");
 
 /////////////////////////COMMON FUNCTIONS ////////////////////////////////
-// 这个函数用来规避512字节栈空间限制，通过在堆上创建内存的方式，避开限制
+// Allocate a gnutls_mastersecret_st on the BPF "heap" to work around
+// the 512-byte stack limit.
 static __always_inline struct gnutls_mastersecret_st *make_event() {
     u32 key_gen = 0;
     struct gnutls_mastersecret_st *bpf_ctx = bpf_map_lookup_elem(&bpf_context_gen, &key_gen);
@@ -159,17 +162,10 @@ SEC("uprobe/gnutls_handshake")
 int uprobe_gnutls_master_key(struct pt_regs *ctx) {
     u64 current_pid_tgid = bpf_get_current_pid_tgid();
     u32 pid = current_pid_tgid >> 32;
-    u64 current_uid_gid = bpf_get_current_uid_gid();
-    u32 uid = current_uid_gid;
-#ifndef KERNEL_LESS_5_2
-    // if target_ppid is 0 then we target all pids
-    if (target_pid != 0 && target_pid != pid) {
+
+    if (!passes_filter(ctx)) {
         return 0;
     }
-    if (target_uid != 0 && target_uid != uid) {
-        return 0;
-    }
-#endif
     u64 gnutls_session_addr = (u64)PT_REGS_PARM1(ctx);
     bpf_map_update_elem(&gnutls_session_maps, &current_pid_tgid, &gnutls_session_addr, BPF_ANY);
     debug_bpf_printk("gnutls uprobe/gnutls_handshake PID: %d, gnutls_session_addr: %d\n", pid, gnutls_session_addr);
@@ -180,18 +176,10 @@ SEC("uretprobe/gnutls_handshake")
 int uretprobe_gnutls_master_key(struct pt_regs *ctx) {
     u64 current_pid_tgid = bpf_get_current_pid_tgid();
     u32 pid = current_pid_tgid >> 32;
-    u64 current_uid_gid = bpf_get_current_uid_gid();
-    u32 uid = current_uid_gid;
 
-#ifndef KERNEL_LESS_5_2
-    // if target_ppid is 0 then we target all pids
-    if (target_pid != 0 && target_pid != pid) {
+    if (!passes_filter(ctx)) {
         return 0;
     }
-    if (target_uid != 0 && target_uid != uid) {
-        return 0;
-    }
-#endif
 
     u8 handshake_return = (u8)PT_REGS_RC(ctx);
     if (handshake_return != 0) {
@@ -278,6 +266,12 @@ int uretprobe_gnutls_master_key(struct pt_regs *ctx) {
                                   (void *)(gnutls_session_addr + GNUTLS_SESSION_INT_SECURITY_PARAMETERS_CLIENT_RANDOM));
         if (ret) {
             debug_bpf_printk("gnutls uretprobe/gnutls_handshake, get client_random failed, ret: %d\n", ret);
+            return 0;
+        }
+        ret = bpf_probe_read_user(&mastersecret->client_early_traffic_secret, sizeof(mastersecret->client_early_traffic_secret),
+                                  (void *)(gnutls_session_addr + GNUTLS_SESSION_INT_KEY_PROTO_TLS13_E_CKEY));
+        if (ret) {
+            debug_bpf_printk("gnutls uretprobe/gnutls_handshake, get client_early_traffic_secret failed, ret: %d\n", ret);
             return 0;
         }
         ret = bpf_probe_read_user(&mastersecret->client_handshake_secret, sizeof(mastersecret->client_handshake_secret),

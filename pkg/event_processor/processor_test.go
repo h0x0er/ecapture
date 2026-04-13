@@ -17,14 +17,14 @@ var (
 
 type SSLDataEventTmp struct {
 	//Event_type   uint8    `json:"Event_type"`
-	DataType  int64      `json:"DataType"`
-	Timestamp uint64     `json:"Timestamp"`
-	Pid       uint32     `json:"Pid"`
-	Tid       uint32     `json:"Tid"`
-	DataLen   int32      `json:"DataLen"`
-	Comm      [16]byte   `json:"Comm"`
-	Fd        uint32     `json:"Fd"`
-	Version   int32      `json:"Version"`
+	DataType  int64       `json:"DataType"`
+	Timestamp uint64      `json:"Timestamp"`
+	Pid       uint32      `json:"Pid"`
+	Tid       uint32      `json:"Tid"`
+	DataLen   int32       `json:"DataLen"`
+	Comm      [16]byte    `json:"Comm"`
+	Fd        uint32      `json:"Fd"`
+	Version   int32       `json:"Version"`
 	Data      [16384]byte `json:"Data"`
 }
 
@@ -37,6 +37,7 @@ func TestEventProcessor_Serve(t *testing.T) {
 	f, e := os.Create(output)
 	if e != nil {
 		t.Fatal(e)
+		return
 	}
 	logger.SetOutput(f)
 	// no truncate
@@ -83,6 +84,7 @@ func TestEventProcessor_Serve(t *testing.T) {
 	bufString, e := os.ReadFile(output)
 	if e != nil {
 		t.Fatal(e)
+		return
 	}
 
 	lines = strings.Split(string(bufString), "\n")
@@ -105,6 +107,7 @@ func TestEventProcessor_Serve(t *testing.T) {
 
 	if !ok {
 		t.Fatalf("some errors occurred")
+		return
 	}
 	//t.Log(string(bufString))
 	t.Log("done")
@@ -119,6 +122,7 @@ func Test_Truncated_EventProcessor_Serve(t *testing.T) {
 	f, e := os.Create(output)
 	if e != nil {
 		t.Fatal(e)
+		return
 	}
 	logger.SetOutput(f)
 
@@ -167,6 +171,7 @@ func Test_Truncated_EventProcessor_Serve(t *testing.T) {
 	bufString, e := os.ReadFile(output)
 	if e != nil {
 		t.Fatal(e)
+		return
 	}
 
 	lines = strings.Split(string(bufString), "\n")
@@ -184,8 +189,8 @@ func Test_Truncated_EventProcessor_Serve(t *testing.T) {
 
 	if !ok {
 		t.Fatalf("some errors occurred")
+		return
 	}
 	//t.Log(string(bufString))
 	t.Log("done")
 }
-

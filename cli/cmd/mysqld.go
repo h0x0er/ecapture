@@ -1,5 +1,5 @@
-//go:build !androidgki
-// +build !androidgki
+//go:build !ecap_android
+// +build !ecap_android
 
 // Copyright 2022 CFC4N <cfc4n.cs@gmail.com>. All Rights Reserved.
 //
@@ -18,12 +18,13 @@
 package cmd
 
 import (
-	"github.com/gojue/ecapture/user/config"
-	"github.com/gojue/ecapture/user/module"
 	"github.com/spf13/cobra"
+
+	"github.com/gojue/ecapture/internal/factory"
+	mysqlProbe "github.com/gojue/ecapture/internal/probe/mysql"
 )
 
-var myc = config.NewMysqldConfig()
+var mysqlConfig = mysqlProbe.NewConfig()
 
 // mysqldCmd represents the mysqld command
 var mysqldCmd = &cobra.Command{
@@ -32,17 +33,27 @@ var mysqldCmd = &cobra.Command{
 	Long: ` only support mysqld 5.6/5.7/8.0 and mariadDB 10.5+.
 
 other version coming soon`,
-	Run: mysqldCommandFunc,
+	RunE: mysqldCommandFunc,
 }
 
 func init() {
-	mysqldCmd.PersistentFlags().StringVarP(&myc.Mysqldpath, "mysqld", "m", "/usr/sbin/mariadbd", "mysqld binary file path, use to hook")
-	mysqldCmd.PersistentFlags().Uint64VarP(&myc.Offset, "offset", "", 0, "0x710410")
-	mysqldCmd.PersistentFlags().StringVarP(&myc.FuncName, "funcname", "f", "", "function name to hook")
+	mysqldCmd.PersistentFlags().StringVarP(&mysqlConfig.MysqlPath, "mysqld", "m", "/usr/sbin/mariadbd", "mysqld binary file path, use to hook")
+	mysqldCmd.PersistentFlags().Uint64VarP(&mysqlConfig.Offset, "offset", "", 0, "0x710410")
+	mysqldCmd.PersistentFlags().StringVarP(&mysqlConfig.FuncName, "funcname", "f", "", "function name to hook")
 	rootCmd.AddCommand(mysqldCmd)
 }
 
-// mysqldCommandFunc executes the "mysqld" command.
-func mysqldCommandFunc(command *cobra.Command, args []string) {
-	runModule(module.ModuleNameMysqld, myc)
+// mysqldCommandFunc executes the "mysqld" command using the new probe architecture.
+func mysqldCommandFunc(command *cobra.Command, args []string) error {
+	// Set global config to mysql-specific config
+	mysqlConfig.SetPid(globalConf.Pid)
+	mysqlConfig.SetUid(globalConf.Uid)
+	mysqlConfig.SetDebug(globalConf.Debug)
+	mysqlConfig.SetHex(globalConf.IsHex)
+	mysqlConfig.SetBTF(globalConf.BtfMode)
+	mysqlConfig.SetPerCpuMapSize(globalConf.PerCpuMapSize)
+	mysqlConfig.SetTruncateSize(globalConf.TruncateSize)
+
+	// Run probe using the common entry point
+	return runProbe(factory.ProbeTypeMySQL, mysqlConfig)
 }

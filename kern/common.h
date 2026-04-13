@@ -28,22 +28,22 @@
 #define TASK_COMM_LEN 16
 #define PATH_MAX_LEN 256
 
-/* 
+/*
  * RFC 5246 : https://datatracker.ietf.org/doc/html/rfc5246#section-6.2
  * length
  *    The length (in bytes) of the following TLSPlaintext.fragment.  The length MUST NOT exceed 2^14.
- * 
+ *
  * OpenSSL : SSL3_RT_MAX_PLAIN_LENGTH (16384). These functions will only accept a value in the range 512 - SSL3_RT_MAX_PLAIN_LENGTH.
  * https://docs.openssl.org/1.1.1/man3/SSL_CTX_set_split_send_fragment/#description
-*/
-#define MAX_DATA_SIZE_OPENSSL 1024 * 16
+ */
+#define MAX_DATA_SIZE_OPENSSL (1024 * 16)
 #define MAX_DATA_SIZE_MYSQL 256
 #define MAX_DATA_SIZE_POSTGRES 256
 #define MAX_DATA_SIZE_BASH 256
 #define MAX_DATA_SIZE_ZSH 256
 
 // enum_server_command, via
-// https://dev.mysql.com/doc/internals/en/com-query.html COM_QUERT command 03
+// https://dev.mysql.com/doc/internals/en/com-query.html COM_QUERY command 03
 #define COM_QUERY 3
 
 #define AF_INET 2
@@ -61,14 +61,18 @@
 #define SKB_MAX_DATA_SIZE 2048
 
 // .rodata section bug via : https://github.com/gojue/ecapture/issues/39
-#ifndef KERNEL_LESS_5_2
 
+// Kernel version less than 5.2
+const volatile u64 less52 = 1;
 // Optional Target PID and UID
 const volatile u64 target_pid = 0;
 const volatile u64 target_uid = 0;
 const volatile u64 target_errno = BASH_ERRNO_DEFAULT;
-#else
-#endif
+// Optional Target cgroup ID (0 means no cgroup filtering)
+// bpf_get_current_cgroup_id() requires kernel >= 4.18
+const volatile u64 target_cgroup_id = 0;
+
+
 
 // fix  4.19.91-27.7.al7.x86_64/source/include/linux/kernel.h:140:9: warning: 'roundup' macro redefined
 #ifndef roundup

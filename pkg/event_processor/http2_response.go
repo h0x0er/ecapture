@@ -50,12 +50,13 @@ type HTTP2Response struct {
 	isInit     bool
 	reader     *bytes.Buffer
 	bufReader  *bufio.Reader
+	hdec       *hpack.Decoder
 }
 
 func (h2r *HTTP2Response) detect(payload []byte) error {
 	payloadLen := len(payload)
 	if payloadLen < frameHeaderLen {
-		return errors.New("Payload less than http2 frame Header")
+		return errors.New("payload less than http2 frame Header")
 	}
 	// https://httpwg.org/specs/rfc7540.html#FrameHeader
 	// All frames begin with a fixed 9-octet header followed by a variable-length payload.
@@ -74,7 +75,7 @@ func (h2r *HTTP2Response) detect(payload []byte) error {
 	currentFrameType := http2.FrameType(data[3])
 	// Frame type in http2.FrameType
 	if currentFrameType > http2.FrameContinuation {
-		return errors.New("Invalid frame type")
+		return errors.New("invalid frame type")
 	}
 	// R: A reserved 1-bit field.
 	// The semantics of this bit are undefined, and the bit MUST remain unset (0x0) when
@@ -83,13 +84,20 @@ func (h2r *HTTP2Response) detect(payload []byte) error {
 	if reservedBit == 0 {
 		return nil
 	}
-	return errors.New("Invalid reserved bit in frame header")
+	return errors.New("invalid reserved bit in frame header")
 }
 
 func (h2r *HTTP2Response) Init() {
 	h2r.reader = bytes.NewBuffer(nil)
 	h2r.bufReader = bufio.NewReader(h2r.reader)
 	h2r.framer = http2.NewFramer(nil, h2r.bufReader)
+	/*
+		one tuple connect should share the same dynamic table
+		https://datatracker.ietf.org/doc/html/rfc7541#section-2.2
+	*/
+	if h2r.hdec == nil {
+		h2r.hdec = hpack.NewDecoder(4096, nil)
+	}
 }
 
 func (h2r *HTTP2Response) Write(b []byte) (int, error) {
@@ -124,11 +132,13 @@ func (h2r *HTTP2Response) Display() []byte {
 	encodingMap := make(map[uint32]string)
 	dataBufMap := make(map[uint32]*bytes.Buffer)
 	frameBuf := bytes.NewBufferString("")
-	hdec := hpack.NewDecoder(4096, nil)
 	for {
 		f, err := h2r.framer.ReadFrame()
 		if err != nil {
-			if err != io.EOF {
+			// io.EOF indicates clean end of stream
+			// io.ErrUnexpectedEOF is expected when capturing incremental TLS data
+			// where frames may be incomplete - this is normal during streaming capture
+			if !errors.Is(err, io.EOF) && !errors.Is(err, io.ErrUnexpectedEOF) {
 				log.Println("[http2 response] Dump HTTP2 Frame error:", err)
 			}
 			break
@@ -138,7 +148,7 @@ func (h2r *HTTP2Response) Display() []byte {
 			streamID := f.StreamID
 			frameBuf.WriteString(fmt.Sprintf("\nFrame Type\t=>\tHEADERS\nFrame StreamID\t=>\t%d\nFrame Length\t=>\t%d\n", streamID, f.Length))
 			if f.HeadersEnded() {
-				fields, err := hdec.DecodeFull(f.HeaderBlockFragment())
+				fields, err := h2r.hdec.DecodeFull(f.HeaderBlockFragment())
 				for _, header := range fields {
 					frameBuf.WriteString(fmt.Sprintf("%s\n", header.String()))
 					if header.Name == "content-encoding" {
@@ -146,10 +156,10 @@ func (h2r *HTTP2Response) Display() []byte {
 					}
 				}
 				if err != nil {
-					frameBuf.WriteString("Incorrect HPACK context, Please use PCAP mode to get correct header fields ...\n")
+					frameBuf.WriteString("[http2 response] Incorrect HPACK context, Please use PCAP mode to get correct header fields ...\n")
 				}
 			} else {
-				frameBuf.WriteString("Not Supported HEADERS Frame with CONTINUATION frames\n")
+				frameBuf.WriteString("[http2 response] Not Supported HEADERS Frame with CONTINUATION frames\n")
 			}
 		case *http2.DataFrame:
 			streamID := f.StreamID
@@ -185,7 +195,7 @@ func (h2r *HTTP2Response) Display() []byte {
 				log.Println("[http2 response] Create gzip reader error:", err)
 				continue
 			}
-			defer reader.Close()
+			defer func() { _ = reader.Close() }()
 			payload, err = io.ReadAll(reader)
 			if err != nil {
 				log.Println("[http2 response] Uncompress gzip data error:", err)

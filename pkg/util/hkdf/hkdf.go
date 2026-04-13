@@ -29,12 +29,14 @@ package hkdf
 
 import (
 	"crypto"
+
 	"golang.org/x/crypto/cryptobyte"
 	"golang.org/x/crypto/hkdf"
 )
 
 const (
 	ResumptionBinderLabel         = "res binder"
+	ClientEarlySecretLabel        = "c e traffic"
 	ClientHandshakeTrafficLabel   = "c hs traffic"
 	ServerHandshakeTrafficLabel   = "s hs traffic"
 	ClientApplicationTrafficLabel = "c ap traffic"
